@@ -1,6 +1,6 @@
 # Marketplace Analysis Design
 
-## High-level Pipeline
+## Data Extraction Pipeline
 
 - Pull `text` from the page using selenium
 - Parse `html` from raw text using jsoup

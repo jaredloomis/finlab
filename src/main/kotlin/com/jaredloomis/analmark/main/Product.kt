@@ -2,9 +2,9 @@ package com.jaredloomis.analmark.main
 
 class Product {
   val product: String
-  val brand: String
+  val brand: Brand
 
-  constructor(product: String, brand: String) {
+  constructor(product: String, brand: Brand) {
     this.product = product
     this.brand = brand
   }
@@ -12,7 +12,7 @@ class Product {
   // XXX temporary - need to parse product & brand
   constructor(str: String) {
     this.product = str
-    this.brand = ""
+    this.brand = Brand("")
   }
 
   override fun toString(): String {

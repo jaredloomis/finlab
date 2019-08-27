@@ -4,7 +4,7 @@ import kotlin.collections.HashSet
 
 interface ProductDB {
   fun addProduct(product: Product)
-  fun findMatch(search: String): Product?
+  fun findMatches(post: RawPosting, brand: Brand?=null): List<Product>
 }
 
 class DummyProductDB: ProductDB {
@@ -14,13 +14,14 @@ class DummyProductDB: ProductDB {
     products = products.plus(product)
   }
 
-  override fun findMatch(search: String): Product? {
-    val searchTokens = tokenize(search)
+  // TODO return matches in order, instead of just best match
+  override fun findMatches(post: RawPosting, brand: Brand?): List<Product> {
+    val searchTokens = tokenize(post.title)
     var maxScore = 0
     var bestMatch: Product? = null
 
-    for(product in products) {
-      val productTokens = tokenize(product.brand + " " + product.product)
+    for(product in products.filter {it.brand == brand}) {
+      val productTokens = tokenize(product.brand.name + " " + product.product)
       // Score = number of tokens which are common across both search product and search
       val score = productTokens.filter {
         searchTokens.contains(it)
@@ -32,7 +33,11 @@ class DummyProductDB: ProductDB {
       }
     }
 
-    return bestMatch
+    val ret = ArrayList<Product>()
+    if(bestMatch != null) {
+      ret.add(bestMatch)
+    }
+    return ret
   }
 }
 

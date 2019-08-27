@@ -8,7 +8,7 @@ import java.lang.Exception
 import java.util.stream.Collectors
 import kotlin.math.min
 
-abstract class Marketplace constructor(val productDB: ProductDB, val name: String, val startURL: String) {
+abstract class Marketplace constructor(val productDB: ProductDB, val brandDB: BrandDB, val name: String, val startURL: String) {
   abstract fun init()
   abstract fun fetchProductBatch(maxSize: Long=Long.MAX_VALUE): List<RawPosting>
   abstract fun search(query: String)
@@ -16,11 +16,11 @@ abstract class Marketplace constructor(val productDB: ProductDB, val name: Strin
 }
 
 open class SeleniumMarketplace(
-  productDB: ProductDB, name: String, startURL: String,
+  productDB: ProductDB, brandDB: BrandDB, name: String, startURL: String,
   val productBy: By, val titleBy: By, val priceBy: By,
   val searchInputBy: By, val searchBtnBy: By,
   val nextPageBtnBy: By, val productListPageIdBy: By)
-  : Marketplace(productDB, name, startURL) {
+  : Marketplace(productDB, brandDB, name, startURL) {
 
   lateinit var driver: WebDriver
   var headless: Boolean = true
@@ -68,7 +68,7 @@ open class SeleniumMarketplace(
       println("[$name] No products found")
     }
 
-    if(maxSize == null || lastItem >= productCount) {
+    if(lastItem >= productCount) {
       nextPage()
     }
 
@@ -147,11 +147,11 @@ open class SeleniumMarketplace(
 }
 
 open class DetailedMarketplace(
-  productDB: ProductDB, name: String, startURL: String, //val postParser: RawPosting,
+  productDB: ProductDB, brandDB: BrandDB, name: String, startURL: String, //val postParser: RawPosting,
   productBy: By, titleBy: By, priceBy: By,
   searchInputBy: By, searchBtnBy: By,
   nextPageBtnBy: By, productListPageIdBy: By, val productPageIdBy: By)
-  : SeleniumMarketplace(productDB, name, startURL, productBy, titleBy, priceBy,
+  : SeleniumMarketplace(productDB, brandDB, name, startURL, productBy, titleBy, priceBy,
                         searchInputBy, searchBtnBy, nextPageBtnBy, productListPageIdBy) {
 
   open fun fetchProduct(): RawPosting? {
@@ -207,39 +207,67 @@ open class DetailedMarketplace(
   }
 }
 
-class Craigslist(productDB: ProductDB) : SeleniumMarketplace(
-  productDB, "Craigslist", "https://sandiego.craigslist.org/search",
+class Craigslist(productDB: ProductDB, brandDB: BrandDB) : SeleniumMarketplace(
+  productDB, brandDB, "Craigslist", "https://sandiego.craigslist.org/search",
   By.className("result-row"), By.className("result-title"), By.className("result-price"),
   By.id("query"), By.className("searchbtn"), By.cssSelector(".button.next"),
   By.className("pagenum")
 ) {}
-/*
-class EBay(productDB: ProductDB) : SeleniumMarketplace(
-  productDB, "eBay", "https://www.ebay.com/",
-  By.className("s-item__info"), By.className("s-item__title"),
-  By.className("s-item__price"),
-  By.id("gh-ac"), By.id("gh-btn"), By.cssSelector("a[rel=next]"),
-  By.className("s-answer-region")
-) {}*/
 
-class EBay(productDB: ProductDB) : DetailedMarketplace(
-  productDB, "eBay", "https://www.ebay.com/",
+class EBay(productDB: ProductDB, brandDB: BrandDB) : DetailedMarketplace(
+  productDB, brandDB, "eBay", "https://www.ebay.com/",
   By.className("s-item__link"), By.id("itemTitle"),
   By.id("prcIsum_bidPrice"),
   By.id("gh-ac"), By.id("gh-btn"), By.cssSelector("a[rel=next]"),
   By.className("s-answer-region"), By.id("itemTitle")
-) {}
+) {
+  override fun fetchProduct(): RawPosting? {
+    val titleStr = findElement(titleBy)?.text ?: ""
+    val priceStr = fetchPriceStr() ?: ""
+    return EbayRawPosting(titleStr, "", priceStr, fetchAttrs())
+  }
 
-class NewEgg(productDB: ProductDB) : SeleniumMarketplace(
-  productDB, "New Egg", "https://www.newegg.com/",
+  fun fetchPriceStr(): String? {
+    val priceBys = listOf(priceBy, By.id("prcIsum"))
+
+    priceBys.forEach {
+      try {
+        val elem = driver.findElement(it)
+        return elem.text
+      } catch(ex: Exception) {}
+    }
+
+    return null
+  }
+
+  fun fetchAttrs(): Map<String, String> {
+    val attrs   = HashMap<String, String>()
+    val tagList = ArrayList<String>()
+    val elems   = driver.findElements(By.cssSelector(".itemAttr td"))
+
+    elems.forEach {elem ->
+      tagList.add(elem.text.toLowerCase().replace(":", ""))
+    }
+
+    // Every even td is an attribute label
+    // Every odd td is the value of preceding label
+    for(i in (1 until tagList.size step 2)) {
+      attrs[tagList[i-1]] = tagList[i]
+    }
+    return attrs
+  }
+}
+
+class NewEgg(productDB: ProductDB, brandDB: BrandDB) : SeleniumMarketplace(
+  productDB, brandDB, "New Egg", "https://www.newegg.com/",
   By.className("item-container"), By.className("item-title"), By.className("price-current"),
   By.id("haQuickSearchBox"), By.className("search-bar-btn"),
   By.cssSelector("button[aria-label=Next]"),
   By.id("radio_soldby")
 ) {}
 
-class Overstock(productDB: ProductDB) : DetailedMarketplace(
-  productDB, "Overstock.com", "https://www.overstock.com/",
+class Overstock(productDB: ProductDB, brandDB: BrandDB) : DetailedMarketplace(
+  productDB, brandDB, "Overstock.com", "https://www.overstock.com/",
   By.className("productCardLink"), By.className("product-title"),
   By.className("monetary-price-value"),
   By.className("search_searchBar_de"), By.cssSelector("#headerSearchContainer button[type=submit]"),

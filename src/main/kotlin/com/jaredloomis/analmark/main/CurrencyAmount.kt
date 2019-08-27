@@ -13,11 +13,11 @@ class CurrencyAmount {
   constructor(str: String) {
     val pricePattern: Pattern = Pattern.compile("[^\\d]*([\\d,]+)")
     val m: Matcher = pricePattern.matcher(str)
-    if (m.find()) {
+    if(m.find()) {
       val dollars = m.group(1).replace(",", "")
       this.pennies = dollars.toLong() * 100
     } else {
-      throw Exception("Improperly formatted CurrencyAmount")
+      throw Exception("Improperly formatted CurrencyAmount: $str")
     }
   }
 

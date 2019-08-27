@@ -6,10 +6,22 @@ import edu.stanford.nlp.pipeline.StanfordCoreNLP
 import java.util.Properties
 
 interface IProductRecognition {
-  fun recognizeBrands(title: String, description: String): List<String>
+  fun recognize(posting: RawPosting): List<Product>
 }
 
-class NERProductRecognition: IProductRecognition {
+class SimpleProductRecognition(val productDB: ProductDB, val brandDB: BrandDB): IProductRecognition {
+  override fun recognize(posting: RawPosting): List<Product> {
+    val brand: Brand? = if(posting.brand != null) {
+      brandDB.findMatches(posting.brand!!)[0]
+    } else {
+      null
+    }
+
+    return productDB.findMatches(posting)
+  }
+}
+
+class NERProductRecognition(val productDB: ProductDB): IProductRecognition {
   val pipeline: StanfordCoreNLP
 
   init {
@@ -28,9 +40,9 @@ class NERProductRecognition: IProductRecognition {
     pipeline = StanfordCoreNLP(props)
   }
 
-  override fun recognizeBrands(title: String, description: String): List<String> {
+  override fun recognize(posting: RawPosting): List<Product> {
     // make an example document
-    val doc = CoreDocument(title + "\n" + description)
+    val doc = CoreDocument(posting.title + "\n" + posting.description)
     // annotate the document
     pipeline.annotate(doc)
     // view results
@@ -40,9 +52,9 @@ class NERProductRecognition: IProductRecognition {
       println("\tdetected entity: \t" + em.text() + "\t" + em.entityType())
     println("---")
     println("tokens and ner tags")
-    return doc.tokens().stream()
+    return ArrayList() /*doc.tokens().stream()
       //.filter {token -> token.ner()}
       .map {token -> "(" + token.word() + "," + token.ner() + ")"}
-      .collect(Collectors.toList())
+      .collect(Collectors.toList())*/
   }
 }
