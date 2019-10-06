@@ -15,7 +15,11 @@ java {
 }
 
 application {
-  mainClassName = "com.jaredloomis.analmark.Main"
+  mainClassName = "com.jaredloomis.analmark.MainKt"
+}
+
+tasks.named<Test>("test") {
+  useJUnitPlatform()
 }
 
 repositories {
@@ -31,6 +35,8 @@ dependencies {
   implementation("edu.stanford.nlp:stanford-corenlp:3.9.2")
   implementation("edu.stanford.nlp:stanford-corenlp:3.9.2:models")
   implementation("org.postgresql:postgresql:42.2.6")
+  implementation("org.apache.commons:commons-csv:1.7")
+  implementation("com.amazonaws:aws-java-sdk-comprehend:1.11.645")
 
   testImplementation("org.junit.jupiter:junit-jupiter-engine:5.5.1")
 }

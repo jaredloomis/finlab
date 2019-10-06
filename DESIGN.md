@@ -12,7 +12,7 @@
 
 - Marketplace  `: () -> ProductPosting`
   - PageFetcher `: () -> String` *Currently in Marketplace*
-  - Jsoup      `: String -> <Document>` *Currently in Marketplace*
-  - PostParser `: <Document> -> RawPosting`
-  - ProductDB  `: RawPosting -> Product`
-  - Implicit from previous info `Product -> (price: String) -> ProductPosting`
+  - Jsoup      `: String -> Document` *Currently in Marketplace*
+  - PostParser `: <Document> -> RawPosting` *Currently in Marketplace*
+  - ProductDB  `: RawPosting -> [Product]` pull potential matches from db.
+  - ProductRecognition `: RawPosting -> [Product] -> Product` choose most relevant option given by db.
