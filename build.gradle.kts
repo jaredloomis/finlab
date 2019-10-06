@@ -29,6 +29,7 @@ repositories {
 
 dependencies {
   implementation(kotlin("stdlib"))
+  implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.50")
   implementation("org.seleniumhq.selenium:selenium-java:3.141.59")
   implementation("org.jsoup:jsoup:1.12.1")
   implementation("org.apache.opennlp:opennlp-distr:1.9.1")

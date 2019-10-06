@@ -4,12 +4,19 @@ import com.jaredloomis.analmark.legacy.ProductDB
 import com.jaredloomis.analmark.model.CurrencyAmount
 import com.jaredloomis.analmark.model.EbayRawPosting
 import com.jaredloomis.analmark.model.RawPosting
+import com.jaredloomis.analmark.util.getLogger
 import org.openqa.selenium.*
 import org.openqa.selenium.firefox.FirefoxDriver
 import org.openqa.selenium.firefox.FirefoxOptions
 import org.openqa.selenium.support.ui.WebDriverWait
 import java.lang.Exception
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.util.*
+import java.util.logging.Logger
 import java.util.stream.Collectors
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 import kotlin.math.min
 import kotlin.random.Random
 
@@ -36,6 +43,7 @@ abstract class SeleniumMarket(
   var headless: Boolean = true
   var currentPage: Int = 0
   var lastItem: Int = -1
+  protected val logger: Logger = getLogger(this::class)
 
   override fun init() {
     val options = FirefoxOptions()
@@ -74,7 +82,7 @@ abstract class SeleniumMarket(
       .collect(Collectors.toList())
 
     if(batch.isEmpty()) {
-      println("[$name] No products found")
+      logger.warning("[$name] No products found")
     }
 
     if(lastItem >= productCount) {
@@ -99,9 +107,10 @@ abstract class SeleniumMarket(
     val choices = getRandomProductListUrls()
     val url     = choices[Random.nextInt(choices.size)]
     driver.navigate() to url
+    waitForPageLoad()
   }
 
-  abstract fun getRandomProductListUrls(): List<String>
+  protected abstract fun getRandomProductListUrls(): List<String>
 
   override fun quit() {
     if(::driver.isInitialized)
@@ -137,10 +146,20 @@ abstract class SeleniumMarket(
     }
   }
 
+  fun getText(by: By): String {
+    return findElement(by)?.text ?: ""
+  }
+
+  fun click(by: By) {
+    findElement(by)?.click()
+  }
+
   fun findElement(by: By): WebElement? {
     return try {
       driver.findElement(by)
     } catch(ex: Exception) {
+      logger.warning("Could not find any elements matching '$by'")
+      screenshot()
       null
     }
   }
@@ -149,8 +168,18 @@ abstract class SeleniumMarket(
     return try {
       driver.findElements(by).toList()
     } catch(ex: Exception) {
+      logger.warning("Could not find any elements matching '$by'")
+      screenshot()
       emptyList()
     }
+  }
+
+  fun screenshot() {
+    val src      = (driver as TakesScreenshot).getScreenshotAs(OutputType.FILE)
+    val destDir  = Paths.get("data", "screenshots")
+    val destName = "${Date().toString()}.png".replace(':', '-')
+    Files.createDirectories(destDir)
+    Files.move(src.toPath(), destDir.resolve(destName))
   }
 
   fun waitForPageLoad() {
@@ -192,21 +221,15 @@ abstract class DetailedMarket(
       .map {productLink(it)}
       .mapNotNull {link ->
         driver.navigate().to(link)
-        WebDriverWait(driver, 3).until {
-          try {
-            driver.findElement(productPageIdBy)
-            true
-          } catch(ex: Exception) {
-            false
-          }
-        }
+        waitForPageLoad()
         val product = fetchProduct()
         driver.navigate().back()
+        waitForPageLoad()
         product
       }
 
     if(posts.isEmpty()) {
-      println("[$name] No products found")
+      logger.warning("[$name] No products found")
     }
 
     if(lastItem >= productElems.size) {
@@ -240,7 +263,7 @@ class Craigslist(productDB: ProductDB) : DetailedMarket(
 
 class EBay(productDB: ProductDB) : DetailedMarket(
   MarketType.EBAY, productDB, "eBay", "https://www.ebay.com/",
-  By.className("s-item__link"), By.id("itemTitle"),
+  By.cssSelector(".s-item__link, a[itemprop=url]"), By.id("itemTitle"),
   By.id("prcIsum_bidPrice"),
   By.id("gh-ac"), By.id("gh-btn"), By.cssSelector("a[rel=next]"),
   By.className("s-answer-region"), By.id("itemTitle")
@@ -256,7 +279,7 @@ class EBay(productDB: ProductDB) : DetailedMarket(
     }
   }
 
-  fun fetchPriceStr(): String? {
+  private fun fetchPriceStr(): String? {
     val priceBys = listOf(priceBy, By.id("prcIsum"))
 
     priceBys.forEach {
@@ -269,7 +292,7 @@ class EBay(productDB: ProductDB) : DetailedMarket(
     return null
   }
 
-  fun fetchAttrs(): Map<String, String> {
+  private fun fetchAttrs(): Map<String, String> {
     val attrs   = HashMap<String, String>()
     val tagList = ArrayList<String>()
     val elems   = driver.findElements(By.cssSelector(".itemAttr td"))

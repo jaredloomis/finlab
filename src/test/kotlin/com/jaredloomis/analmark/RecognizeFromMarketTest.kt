@@ -24,7 +24,7 @@ class RecognizeFromMarketTest {
   val buyMarket   = EBay(productDB) //randomMarket(productDB)
   val sellMarket  = Craigslist(productDB) //randomMarket(productDB)
   val recognition = DBCachingProductRecognition(productDB, postingDB)
-  val maxBatchSize = 3L
+  val maxBatchSize = 100L
   val batchCount = 2
 
   @BeforeAll
@@ -37,18 +37,17 @@ class RecognizeFromMarketTest {
 
   @AfterAll
   fun destroy() {
-    buyMarket.quit()
+    //buyMarket.quit()
     sellMarket.quit()
   }
 
   @Test
   fun fetchSellPostsMatchToBuyPosts() {
-    val query     = "sony"
     val buyPosts  = ArrayList<RawPosting>()
     val sellPosts = ArrayList<RawPosting>()
 
     // Populate buyPosts
-    buyMarket.search(query)
+    buyMarket.navigateToRandomProductList()
     repeat(batchCount) {
       val buyBatch = buyMarket.fetchProductBatch(maxSize=maxBatchSize)
       buyPosts.addAll(buyBatch)
@@ -59,8 +58,11 @@ class RecognizeFromMarketTest {
 
     // Create Products from buy Postings, and add postings to db
     val buyProducts = buyPosts
-      .mapNotNull {recognition.create(it)}
-      .map        {postingDB.insert(it)}
+      .mapNotNull {
+        val rec = recognition.recognize(it, productDB.find(it))
+        rec ?: recognition.create(it)
+      }
+      .map {postingDB.insert(it)}
 
     assert(buyProducts.isNotEmpty()) {"1 or more products were created from buyMarket postings. $buyPosts"}
 
