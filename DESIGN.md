@@ -16,3 +16,4 @@
   - PostParser `: <Document> -> RawPosting` *Currently in Marketplace*
   - ProductDB  `: RawPosting -> [Product]` pull potential matches from db.
   - ProductRecognition `: RawPosting -> [Product] -> Product` choose most relevant option given by db.
+ 

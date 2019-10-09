@@ -9,16 +9,25 @@ import org.openqa.selenium.*
 import org.openqa.selenium.firefox.FirefoxDriver
 import org.openqa.selenium.firefox.FirefoxOptions
 import org.openqa.selenium.support.ui.WebDriverWait
+import java.io.ByteArrayOutputStream
 import java.lang.Exception
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.*
+import java.util.concurrent.Executors
 import java.util.logging.Logger
 import java.util.stream.Collectors
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.math.min
 import kotlin.random.Random
+import java.io.PrintStream
+import java.nio.charset.StandardCharsets
+import org.openqa.selenium.logging.LogType
+import org.openqa.selenium.logging.LoggingPreferences
+import java.nio.file.Path
+import java.util.logging.Level
+
 
 enum class MarketType {
   CRAIGSLIST, EBAY, OVERSTOCK, NEWEGG
@@ -43,11 +52,19 @@ abstract class SeleniumMarket(
   var headless: Boolean = true
   var currentPage: Int = 0
   var lastItem: Int = -1
+  var screenshotCount: Int = 0
   protected val logger: Logger = getLogger(this::class)
 
+  private val threads = Executors.newFixedThreadPool(1)
+
   override fun init() {
+    val logPrefs = LoggingPreferences()
+    logPrefs.enable(LogType.BROWSER, Level.ALL)
+
     val options = FirefoxOptions()
       .setHeadless(headless)
+    //  .setCapability(CapabilityType.LOGGING_PREFS, logPrefs)
+
     System.setProperty(
       "webdriver.gecko.driver",
       "C:\\Program Files\\geckodriver\\geckodriver-v0.24.0-win64\\geckodriver.exe"
@@ -93,6 +110,7 @@ abstract class SeleniumMarket(
   }
 
   override fun search(query: String) {
+    logger.info("[$name] Searching for '$query'")
     ensureOnProductListPage()
     val searchBar = driver.findElement(searchInputBy)
     searchBar.clear()
@@ -104,10 +122,12 @@ abstract class SeleniumMarket(
   }
 
   override fun navigateToRandomProductList() {
+    logger.info("[$name] Navigating to random product list page.")
     val choices = getRandomProductListUrls()
     val url     = choices[Random.nextInt(choices.size)]
     driver.navigate() to url
     waitForPageLoad()
+    currentPage = 1
   }
 
   protected abstract fun getRandomProductListUrls(): List<String>
@@ -159,7 +179,7 @@ abstract class SeleniumMarket(
       driver.findElement(by)
     } catch(ex: Exception) {
       logger.warning("Could not find any elements matching '$by'")
-      screenshot()
+      screenshot("err_find_element")
       null
     }
   }
@@ -169,21 +189,42 @@ abstract class SeleniumMarket(
       driver.findElements(by).toList()
     } catch(ex: Exception) {
       logger.warning("Could not find any elements matching '$by'")
-      screenshot()
+      screenshot("err_find_elements")
       emptyList()
     }
   }
 
-  fun screenshot() {
-    val src      = (driver as TakesScreenshot).getScreenshotAs(OutputType.FILE)
-    val destDir  = Paths.get("data", "screenshots")
-    val destName = "${Date().toString()}.png".replace(':', '-')
-    Files.createDirectories(destDir)
-    Files.move(src.toPath(), destDir.resolve(destName))
+  fun screenshot(tag: String? = null) {
+    ++screenshotCount
+
+    threads.submit {
+      try {
+        val src = (driver as TakesScreenshot).getScreenshotAs(OutputType.FILE)
+        val destDir = Paths.get("data", "screenshots")
+        val destName = "${Date().toString()}_${tag ?: ""}"
+        val destPath = findFreePath(destDir, destName, ".png")
+        Files.createDirectories(destDir)
+        Files.move(src.toPath(), destPath)
+      } catch(ex: Exception) {
+        val buf = ByteArrayOutputStream()
+        val ps = PrintStream(buf)
+        ex.printStackTrace(ps)
+        val str = buf.toString(StandardCharsets.UTF_8)
+        logger.warning("Failed to take a screenshot\n$str")
+      }
+    }
+  }
+
+  private fun findFreePath(dir: Path, name: String, extension: String): Path {
+    val cname = name.replace(':', '.')
+    var suffix = 0
+    while(Files.exists(dir.resolve("$cname$suffix$extension"))) {
+      ++suffix
+    }
+    return dir.resolve("$cname$suffix$extension")
   }
 
   fun waitForPageLoad() {
-    Thread.sleep(1000)
     WebDriverWait(driver, 10000).until {webDriver ->
       if(webDriver is JavascriptExecutor)
         return@until (webDriver as JavascriptExecutor).executeScript("return document.readyState") == "complete"
@@ -238,6 +279,8 @@ abstract class DetailedMarket(
 
     lastItem = maxProductI
 
+    logger.info("Retrieved postings: $posts")
+
     return posts
   }
 
@@ -271,10 +314,15 @@ class EBay(productDB: ProductDB) : DetailedMarket(
   override fun fetchProduct(): RawPosting? {
     val url      = driver.currentUrl
     val titleStr = findElement(titleBy)?.text ?: ""
+    val descrStr = findElement(By.id("desc_div"))?.text ?: ""
     val priceStr = fetchPriceStr() ?: ""
     return try {
-      EbayRawPosting(url, titleStr, "", CurrencyAmount(priceStr), fetchAttrs())
+      val post = EbayRawPosting(url, titleStr, descrStr, CurrencyAmount(priceStr), fetchAttrs())
+      post.category = findElement(By.cssSelector("#vi-VR-brumb-lnkLst li:nth-last-of-type(3), .breadcrumb > ol > li:last-of-type"))?.text
+      logger.info("Post category: ${post.category}")
+      post
     } catch(ex: Exception) {
+      ex.printStackTrace()
       null
     }
   }
@@ -309,8 +357,29 @@ class EBay(productDB: ProductDB) : DetailedMarket(
     return attrs
   }
 
+  override fun navigateToRandomProductList() {
+    driver.navigate().to(startURL)
+    waitForPageLoad()
+    // Open categories list
+    findElement(By.id("gh-shop-a"))!!.click()
+    Thread.sleep(500)
+    // Click a random subcategory
+    val catLinks = findElements(By.className("scnd"))
+    catLinks[Random.nextInt(0, catLinks.size)].click()
+    waitForPageLoad()
+    // Click a random product list
+    val listLinks = findElements(By.cssSelector(".b-visualnav__tile b-visualnav__tile__default, a[class*=nav][class*=tile]"))
+    if(listLinks.isEmpty()) {
+      navigateToRandomProductList()
+      return
+    }
+    listLinks[Random.nextInt(0, listLinks.size)].click()
+    waitForPageLoad()
+    currentPage = 1
+  }
+
   override fun getRandomProductListUrls(): List<String> {
-    return listOf("https://www.ebay.com/deals/tech")
+    return emptyList()
   }
 }
 

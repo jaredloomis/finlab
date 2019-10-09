@@ -17,8 +17,10 @@ open class RawPosting(
   val specs: Map<String, String>
     get() = _specs
   val brand: String?
-    get() = specs["brand"]
+    get() = specs["brand"] ?: specs["maker"] ?: specs["manufacturer"]
   val seen: Instant = Instant.now()
+  var category: String? = null
+  val tags: MutableSet<String> = HashSet()
 
   open fun cleanTitle(): String {
     return _title

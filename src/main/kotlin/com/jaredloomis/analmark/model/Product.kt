@@ -1,6 +1,9 @@
 package com.jaredloomis.analmark.model
 
-class Product(val canonicalName: String, val primaryBrand: Brand) {
+import com.jaredloomis.analmark.nlp.parseTechnicalModelIDs
+import com.jaredloomis.analmark.nlp.removeSubstring
+
+class Product(var canonicalName: String, val primaryBrand: Brand) {
   var id: Long? = null
   var upc: String? = null
 
@@ -10,7 +13,7 @@ class Product(val canonicalName: String, val primaryBrand: Brand) {
    * ex.
    */
   var modelID: String? = null
-
+  var category: String? = null
   val tags: MutableSet<String> = HashSet()
   val associatedBrands: MutableSet<String> = HashSet()
 
@@ -18,25 +21,29 @@ class Product(val canonicalName: String, val primaryBrand: Brand) {
     this.id = id
   }
 
+  constructor(copy: Product): this(copy.canonicalName, copy.primaryBrand) {
+    id  = copy.id
+    upc      = copy.upc
+    modelID  = copy.modelID
+    category = copy.category
+    tags.addAll(copy.tags)
+    associatedBrands.addAll(copy.associatedBrands)
+  }
+
   /**
    * XXX
    * TODO: EXPAND FUNCTIONALITY
-   * Currenly just returns this, with name replaced by that.canonicalName if it is longer than this.canonicalName.
+   * Currenly just returns this, with name replaced by that.canonicalName if it is shorter than this.canonicalName.
    */
   fun merge(that: Product): Product {
-    return if(id == that.id) {
-      val name = if(canonicalName.length > that.canonicalName.length) {
-        canonicalName
-      } else {
-        that.canonicalName
-      }
-      val product = Product(name, primaryBrand)
-      product.id  = id
-      product.upc = upc
-      product
+    val name = if(canonicalName.length < that.canonicalName.length) {
+      canonicalName
     } else {
-      this
+      that.canonicalName
     }
+    val product = Product(this)
+    product.canonicalName = name
+    return product
   }
 
   override fun toString(): String {

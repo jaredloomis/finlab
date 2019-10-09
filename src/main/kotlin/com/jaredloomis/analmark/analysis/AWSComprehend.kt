@@ -4,16 +4,16 @@ import com.amazonaws.services.comprehend.AmazonComprehendClientBuilder
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
 import com.amazonaws.services.comprehend.AmazonComprehend
 import com.amazonaws.services.comprehend.model.*
-
+import java.util.*
 
 class AWSComprehend {
   private val awsCreds: DefaultAWSCredentialsProviderChain
   private val client: AmazonComprehend
 
   init {
-    // TODO proper AWS keys configuration
-    System.setProperty("aws.accessKeyId", "AKIA2OV7LVAAGYECNKTA")
-    System.setProperty("aws.secretKey", "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")
+    val props = Properties()
+    props.load(this.javaClass.getResourceAsStream("credentials.properties"))
+    System.setProperties(props)
 
     awsCreds = DefaultAWSCredentialsProviderChain.getInstance()
     client = AmazonComprehendClientBuilder.standard()
@@ -24,7 +24,7 @@ class AWSComprehend {
 
   fun comprehendBrand(text: String): String? {
     return comprehend(text).stream()
-      .filter {entity -> entity.type == "ORGANIZATION"}
+      .filter {entity -> entity.type == EntityType.ORGANIZATION.name}
       .findFirst()
       .map {entity -> entity.text}
       .orElse(null)
@@ -32,7 +32,7 @@ class AWSComprehend {
 
   fun comprehendProduct(text: String): String? {
     return comprehend(text).stream()
-      .filter {entity -> entity.type == "COMMERCIAL_ITEM"}
+      .filter {entity -> entity.type == EntityType.COMMERCIAL_ITEM.name}
       .findFirst()
       .map {entity -> entity.text}
       .orElse(null)

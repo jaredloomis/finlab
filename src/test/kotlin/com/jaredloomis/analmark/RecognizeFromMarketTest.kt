@@ -24,12 +24,12 @@ class RecognizeFromMarketTest {
   val buyMarket   = EBay(productDB) //randomMarket(productDB)
   val sellMarket  = Craigslist(productDB) //randomMarket(productDB)
   val recognition = DBCachingProductRecognition(productDB, postingDB)
-  val maxBatchSize = 100L
+  val maxBatchSize = 5L
   val batchCount = 2
 
   @BeforeAll
   fun init() {
-    buyMarket.headless = false
+    //buyMarket.headless = false
     sellMarket.headless = false
     buyMarket.init()
     sellMarket.init()
@@ -37,8 +37,8 @@ class RecognizeFromMarketTest {
 
   @AfterAll
   fun destroy() {
-    //buyMarket.quit()
-    sellMarket.quit()
+    buyMarket.quit()
+    //sellMarket.quit()
   }
 
   @Test
@@ -47,7 +47,7 @@ class RecognizeFromMarketTest {
     val sellPosts = ArrayList<RawPosting>()
 
     // Populate buyPosts
-    buyMarket.navigateToRandomProductList()
+    buyMarket.search("shoes") //buyMarket.navigateToRandomProductList()
     repeat(batchCount) {
       val buyBatch = buyMarket.fetchProductBatch(maxSize=maxBatchSize)
       buyPosts.addAll(buyBatch)

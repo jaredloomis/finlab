@@ -16,17 +16,19 @@ fun <T: Any> getLogger(klass: Class<T>): Logger {
   // Create logger, and add handlers
   val logger = Logger.getLogger(klass.name)
 
-  // Create formatter
+  // Create formatters
   System.setProperty("java.util.logging.SimpleFormatter.format", "ANALMARK [%1\$tF %1\$tT] [%4\$-7s] %5\$s %n")
-  val formatter = SimpleFormatter()
+  val consoleFormatter = SimpleFormatter()
+  System.setProperty("java.util.logging.SimpleFormatter.format", "ANALMARK [%1\$tF %1\$tT] [%2\$.%3\$] [%4\$-7s] %5\$s %n")
+  val fileFormatter = SimpleFormatter()
 
   // Console
   val ch = ConsoleHandler()
-  ch.formatter = formatter
+  ch.formatter = consoleFormatter
   logger.addHandler(ch)
   // File
   val fh = FileHandler("logs/$executionTag.log")
-  fh.formatter = formatter
+  fh.formatter = fileFormatter
   logger.addHandler(fh)
 
   return logger

@@ -3,11 +3,10 @@ package com.jaredloomis.analmark.db
 import com.jaredloomis.analmark.scrape.MarketType
 import com.jaredloomis.analmark.model.*
 import com.jaredloomis.analmark.nlp.wordsInCommon
-import java.sql.Connection
-import java.sql.DriverManager
+import org.postgresql.util.PSQLException
+import java.sql.*
+import java.util.logging.Logger
 import java.util.stream.Stream
-import java.sql.ResultSet
-import java.sql.Statement
 
 abstract class DBModel<Q, T> {
   abstract fun findByID(id: Long): T?
@@ -29,7 +28,7 @@ private fun matcherString(input: String): String {
     .replace("[", "![") + "%"
 }
 
-private fun parseProduct(rs: ResultSet): Product? {
+private fun parseProduct(rs: ResultSet): Product {
   val id           = rs.getLong("id")
   val productName  = rs.getString("product_name")
   val productBrand = rs.getString("brand")
@@ -85,10 +84,10 @@ class PostgresPostingDBModel(
     val stmt = con.prepareStatement(insertSQL, Statement.RETURN_GENERATED_KEYS)
     stmt.setString(1, entity.posting.market.name)
     stmt.setString(2, entity.posting.url)
-    if(product.id != null)
-      stmt.setLong(3, product.id!!)
+    if(entity.product.id != null)
+      stmt.setLong(3, entity.product.id!!)
     else
-      stmt.setNull(3, java.sql.Types.BIGINT)
+      stmt.setNull(3, Types.BIGINT)
     stmt.setString(4, entity.posting.title)
     stmt.setLong(5, entity.posting.price.pennies)
     stmt.setString(6, entity.posting.description)
@@ -239,6 +238,8 @@ class PostgresPostingDBModel(
 class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
   var productTableName = "public.products"
 
+  private val logger = Logger.getLogger(this::class.qualifiedName)
+
   constructor(postingModel: DBModel<Product, ProductPosting>, productTableName: String) : this() {
     this.productTableName = productTableName
   }
@@ -255,7 +256,7 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
 
       val insertSQL = """
         UPDATE $productTableName
-        SET product_name = ?, brand = ?, modelID = ?, upc = ?
+        SET product_name = ?, brand = ?, modelID = ?, upc = ?, category = ?
         WHERE id = ?
       """.trimIndent()
       val con = connect()
@@ -264,13 +265,15 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
       stmt.setString(2, ret.primaryBrand.name)
       stmt.setString(3, ret.modelID)
       stmt.setString(4, ret.upc)
-      stmt.setLong(5, ret.id!!)
+      if(ret.category != null)
+        stmt.setString(5, ret.category)
+      else
+        stmt.setNull(5, Types.VARCHAR)
+      stmt.setLong(6, ret.id!!)
       stmt.executeUpdate()
       stmt.close()
       con.close()
       return ret
-    } else {
-      println("No entry found in db: '${entity.canonicalName}'")
     }
 
     val insertSQL = "INSERT INTO $productTableName VALUES (DEFAULT, ?, ?, ?, ?);"
@@ -280,15 +283,24 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
     stmt.setString(2, entity.primaryBrand.name)
     stmt.setString(3, entity.modelID)
     stmt.setString(4, entity.upc)
-    stmt.executeUpdate()
-    val id = if (stmt.generatedKeys.next()) {
-      stmt.generatedKeys.getLong(1)
-    } else {
-      -1
+    var id: Long? = null
+    try {
+      stmt.executeUpdate()
+      if(stmt.generatedKeys.next()) {
+        id = stmt.generatedKeys.getLong(1)
+      }
+    } catch(ex: PSQLException) {
+      if(ex.message?.contains("duplicate key value violates unique constraint") == true) {
+        logger.info("Ignoring duplicate name error. Throwing away entry $entity")
+      } else {
+        throw ex
+      }
+    } finally {
+      stmt.close()
+      con.close()
     }
-    stmt.close()
-    con.close()
-    return Product(id, entity.canonicalName, entity.primaryBrand)
+
+    return Product(id ?: -1, entity.canonicalName, entity.primaryBrand)
   }
 
   override fun findByID(id: Long): Product? {
@@ -299,9 +311,7 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
     val stmt    = con.createStatement()
     val results = stmt.executeQuery(querySQL)
     if(results.next()) {
-      val productName = results.getString("product_name")
-      val productBrand = results.getString("brand")
-      ret = Product(id, productName, Brand(productBrand))
+      ret = parseProduct(results)
     }
     results.close()
     stmt.close()
@@ -329,7 +339,10 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
   override fun find(query: RawPosting): Stream<Product> {
     // TODO streaming implementation
     val matches = ArrayList<Product>()
-    val querySQL = "SELECT * FROM $productTableName WHERE product_name ILIKE ? OR brand ILIKE ? OR ? ILIKE product_name"
+    val querySQL = """
+      SELECT * FROM $productTableName
+      WHERE product_name ILIKE ? OR brand ILIKE ? OR ? ILIKE product_name OR category ILIKE ?
+    """
 
     val con     = connect()
     val stmt    = con.prepareStatement(querySQL)
@@ -337,15 +350,16 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
     if(query.brand != null) {
       stmt.setString(2, matcherString(query.brand!!))
     } else {
-      stmt.setNull(2, java.sql.Types.VARCHAR)
+      stmt.setNull(2, Types.VARCHAR)
     }
     stmt.setString(3, matcherString(query.description))
+    if(query.category != null)
+      stmt.setString(4, query.category)
+    else
+      stmt.setNull(4, Types.VARCHAR)
     val results = stmt.executeQuery()
     while(results.next()) {
-      val id = results.getLong("id")
-      val productName = results.getString("product_name")
-      val productBrand = results.getString("brand")
-      matches.add(Product(id, productName, Brand(productBrand)))
+      matches.add(parseProduct(results))
     }
     results.close()
     stmt.close()
@@ -363,10 +377,7 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
     val stmt    = con.createStatement()
     val results = stmt.executeQuery(querySQL)
     while(results.next()) {
-      val id = results.getLong("id")
-      val productName = results.getString("product_name")
-      val productBrand = results.getString("brand")
-      matches.add(Product(id, productName, Brand(productBrand)))
+      matches.add(parseProduct(results))
     }
     results.close()
     stmt.close()
@@ -382,8 +393,10 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
         id           SERIAL PRIMARY KEY,
         product_name TEXT UNIQUE NOT NULL,
         brand        TEXT NOT NULL,
+        category     TEXT,
         modelID      TEXT,
-        upc          TEXT
+        upc          TEXT,
+        tags         TEXT
       );
       """.trimIndent()
     val con     = connect()
