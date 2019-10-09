@@ -8,6 +8,7 @@ import com.jaredloomis.analmark.util.getLogger
 import org.openqa.selenium.*
 import org.openqa.selenium.firefox.FirefoxDriver
 import org.openqa.selenium.firefox.FirefoxOptions
+import org.openqa.selenium.htmlunit.HtmlUnitDriver
 import org.openqa.selenium.support.ui.WebDriverWait
 import java.io.ByteArrayOutputStream
 import java.lang.Exception
@@ -25,6 +26,7 @@ import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import org.openqa.selenium.logging.LogType
 import org.openqa.selenium.logging.LoggingPreferences
+import org.openqa.selenium.remote.CapabilityType
 import java.nio.file.Path
 import java.util.logging.Level
 
@@ -55,21 +57,17 @@ abstract class SeleniumMarket(
   var screenshotCount: Int = 0
   protected val logger: Logger = getLogger(this::class)
 
-  private val threads = Executors.newFixedThreadPool(1)
+  private val threads = Executors.newSingleThreadExecutor()
 
   override fun init() {
-    val logPrefs = LoggingPreferences()
-    logPrefs.enable(LogType.BROWSER, Level.ALL)
-
     val options = FirefoxOptions()
       .setHeadless(headless)
-    //  .setCapability(CapabilityType.LOGGING_PREFS, logPrefs)
 
     System.setProperty(
       "webdriver.gecko.driver",
       "C:\\Program Files\\geckodriver\\geckodriver-v0.24.0-win64\\geckodriver.exe"
     )
-    driver = FirefoxDriver(options)
+    driver =FirefoxDriver(options)
   }
 
   // XXX TODO FIX this does not respect pages. Must track lastItem
@@ -159,11 +157,11 @@ abstract class SeleniumMarket(
       driver.navigate().to(startURL)
       currentPage = 1
       waitForPageLoad()
-    } else if(findElement(productListPageIdBy) == null) {
+    } /*else if(findElement(productListPageIdBy) == null) {
       driver.navigate().to(startURL)
       waitForPageLoad()
       repeat(currentPage) {nextPage()}
-    }
+    }*/
   }
 
   fun getText(by: By): String {
@@ -179,7 +177,6 @@ abstract class SeleniumMarket(
       driver.findElement(by)
     } catch(ex: Exception) {
       logger.warning("Could not find any elements matching '$by'")
-      screenshot("err_find_element")
       null
     }
   }
@@ -189,7 +186,6 @@ abstract class SeleniumMarket(
       driver.findElements(by).toList()
     } catch(ex: Exception) {
       logger.warning("Could not find any elements matching '$by'")
-      screenshot("err_find_elements")
       emptyList()
     }
   }
@@ -217,6 +213,11 @@ abstract class SeleniumMarket(
 
   private fun findFreePath(dir: Path, name: String, extension: String): Path {
     val cname = name.replace(':', '.')
+    val preferred = dir.resolve("$cname$extension")
+    if(!Files.exists(preferred)) {
+      return preferred
+    }
+
     var suffix = 0
     while(Files.exists(dir.resolve("$cname$suffix$extension"))) {
       ++suffix
@@ -230,6 +231,7 @@ abstract class SeleniumMarket(
         return@until (webDriver as JavascriptExecutor).executeScript("return document.readyState") == "complete"
       false
     }
+    Thread.sleep(500)
   }
 }
 
@@ -266,6 +268,10 @@ abstract class DetailedMarket(
         val product = fetchProduct()
         driver.navigate().back()
         waitForPageLoad()
+        logger.info("PRODUCT PARSED: $product")
+        if(product == null) {
+          screenshot("fetch_product_null")
+        }
         product
       }
 
@@ -307,15 +313,15 @@ class Craigslist(productDB: ProductDB) : DetailedMarket(
 class EBay(productDB: ProductDB) : DetailedMarket(
   MarketType.EBAY, productDB, "eBay", "https://www.ebay.com/",
   By.cssSelector(".s-item__link, a[itemprop=url]"), By.id("itemTitle"),
-  By.id("prcIsum_bidPrice"),
+  By.cssSelector("#prcIsum, #prcIsum_bidPrice"),
   By.id("gh-ac"), By.id("gh-btn"), By.cssSelector("a[rel=next]"),
   By.className("s-answer-region"), By.id("itemTitle")
 ) {
   override fun fetchProduct(): RawPosting? {
     val url      = driver.currentUrl
     val titleStr = findElement(titleBy)?.text ?: ""
-    val descrStr = findElement(By.id("desc_div"))?.text ?: ""
-    val priceStr = fetchPriceStr() ?: ""
+    val descrStr = findElement(By.cssSelector("#desc_div, #ds_div, #ProductDetails"))?.text ?: ""
+    val priceStr = findElement(priceBy)?.text ?: ""
     return try {
       val post = EbayRawPosting(url, titleStr, descrStr, CurrencyAmount(priceStr), fetchAttrs())
       post.category = findElement(By.cssSelector("#vi-VR-brumb-lnkLst li:nth-last-of-type(3), .breadcrumb > ol > li:last-of-type"))?.text
@@ -325,19 +331,6 @@ class EBay(productDB: ProductDB) : DetailedMarket(
       ex.printStackTrace()
       null
     }
-  }
-
-  private fun fetchPriceStr(): String? {
-    val priceBys = listOf(priceBy, By.id("prcIsum"))
-
-    priceBys.forEach {
-      try {
-        val elem = driver.findElement(it)
-        return elem.text
-      } catch(ex: Exception) {}
-    }
-
-    return null
   }
 
   private fun fetchAttrs(): Map<String, String> {

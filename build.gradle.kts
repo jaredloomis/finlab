@@ -38,6 +38,7 @@ dependencies {
   implementation("org.postgresql:postgresql:42.2.6")
   implementation("org.apache.commons:commons-csv:1.7")
   implementation("com.amazonaws:aws-java-sdk-comprehend:1.11.645")
+  implementation("org.seleniumhq.selenium:htmlunit-driver:2.36.0")
 
   testImplementation("org.junit.jupiter:junit-jupiter-engine:5.5.1")
 }

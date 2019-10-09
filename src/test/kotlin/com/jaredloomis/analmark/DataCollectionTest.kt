@@ -26,8 +26,8 @@ class DataCollectionTest {
 
   @BeforeAll
   fun init() {
+    //buyMarket.headless = false
     buyMarket.init()
-    buyMarket.headless = false
   }
 
   @AfterAll

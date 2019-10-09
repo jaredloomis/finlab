@@ -91,7 +91,11 @@ class PostgresPostingDBModel(
     stmt.setString(4, entity.posting.title)
     stmt.setLong(5, entity.posting.price.pennies)
     stmt.setString(6, entity.posting.description)
-    stmt.setString(7, "")
+    stmt.setString(7, entity.posting.specs.entries
+      .map {entry -> "${entry.key}=${entry.value}"}
+      .fold(StringBuilder()) {acc, entryStr -> acc.append(entryStr).append(",")}
+      .toString()
+    )
     stmt.executeUpdate()
     val id = if(stmt.generatedKeys.next()) {
       stmt.generatedKeys.getLong(1)
@@ -276,13 +280,17 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
       return ret
     }
 
-    val insertSQL = "INSERT INTO $productTableName VALUES (DEFAULT, ?, ?, ?, ?);"
+    val insertSQL = "INSERT INTO $productTableName VALUES (DEFAULT, ?, ?, ?, ?, ?);"
     val con = connect()
     val stmt = con.prepareStatement(insertSQL, Statement.RETURN_GENERATED_KEYS)
     stmt.setString(1, entity.canonicalName)
     stmt.setString(2, entity.primaryBrand.name)
     stmt.setString(3, entity.modelID)
     stmt.setString(4, entity.upc)
+    if(entity.category != null)
+      stmt.setString(5, entity.category)
+    else
+      stmt.setNull(5, Types.VARCHAR)
     var id: Long? = null
     try {
       stmt.executeUpdate()
