@@ -6,36 +6,32 @@ import java.time.Instant
 
 open class RawPosting(
   val market: MarketType, val url: String,
-  val _title: String, private val _description: String, private val _price: CurrencyAmount, private val _specs: Map<String, String>
+  val title: String, val description: String, val price: CurrencyAmount,
+  // Specs keys should all be lower-case
+  _specs: Map<String, String>
 ) {
-  val title: String
-    get() = cleanTitle()
-  val description: String
-    get() = cleanDescription()
-  val price: CurrencyAmount
-    get() = _price
-  val specs: Map<String, String>
-    get() = _specs
   val brand: String?
-    get() = specs["brand"] ?: specs["maker"] ?: specs["manufacturer"]
+    get() = specs["brand"] ?: specs["maker"] ?: specs["manufacturer"] ?: specs["make"]
+  val model: String?
+    get() = specs["model"] ?: specs["model id"] ?: specs["model no"] ?: specs["modelid"]
   val seen: Instant = Instant.now()
   var category: String? = null
   val tags: MutableSet<String> = HashSet()
-
-  open fun cleanTitle(): String {
-    return _title
-  }
-
-  open fun cleanDescription(): String {
-    return _description
-  }
+  val specs = _specs
+    .mapValues {
+      when(it.value) {
+        "does not apply" -> null
+        else             -> it.value
+      }
+    }
+    .filter {it.value != null}
 
   open fun parsePrice(str: String): CurrencyAmount {
     return CurrencyAmount(str)
   }
 
   override fun toString(): String {
-    return "RawPosting(market='$market' title='$title', description='$description', price='$price', url='$url' specs=$_specs)"
+    return "RawPosting(market='$market' title='$title', description='$description', price='$price', category='$category' seen='$seen' url='$url' specs=$specs, tags=$tags)"
   }
 
   override fun equals(other: Any?): Boolean {
@@ -44,19 +40,21 @@ open class RawPosting(
 
     other as RawPosting
 
-    if (_title != other._title) return false
-    if (_description != other._description) return false
-    if (_price != other._price) return false
-    if (_specs != other._specs) return false
+    if (title != other.title) return false
+    if (description != other.description) return false
+    if (price != other.price) return false
+    if (specs != other.specs) return false
+    if(category != other.category) return false
+    if(tags != other.tags) return false
 
     return true
   }
 
   override fun hashCode(): Int {
-    var result = _title.hashCode()
-    result = 31 * result + _description.hashCode()
-    result = 31 * result + _price.hashCode()
-    result = 31 * result + _specs.hashCode()
+    var result = title.hashCode()
+    result = 31 * result + description.hashCode()
+    result = 31 * result + price.hashCode()
+    result = 31 * result + specs.hashCode()
     return result
   }
 }
@@ -73,10 +71,4 @@ class OverstockRawPosting(url: String, title: String, description: String, price
 
 class EbayRawPosting(url: String, title: String, description: String, price: CurrencyAmount, specs: Map<String, String>)
   : RawPosting(MarketType.EBAY, url, title, description, price, specs) {
-  override fun cleanTitle(): String {
-    return if(brand != null)
-      removeSubstring(brand!!, _title).trim()
-    else
-      _title
-  }
 }

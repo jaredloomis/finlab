@@ -1,9 +1,6 @@
 package com.jaredloomis.analmark.model
 
-import com.jaredloomis.analmark.nlp.parseTechnicalModelIDs
-import com.jaredloomis.analmark.nlp.removeSubstring
-
-class Product(var canonicalName: String, val primaryBrand: Brand) {
+class Product(var canonicalName: String, var primaryBrand: Brand) {
   var id: Long? = null
   var upc: String? = null
 
@@ -14,6 +11,7 @@ class Product(var canonicalName: String, val primaryBrand: Brand) {
    */
   var modelID: String? = null
   var category: String? = null
+  val specs: MutableMap<String, String> = HashMap()
   val tags: MutableSet<String> = HashSet()
   val associatedBrands: MutableSet<String> = HashSet()
 
@@ -36,17 +34,27 @@ class Product(var canonicalName: String, val primaryBrand: Brand) {
    * Currenly just returns this, with name replaced by that.canonicalName if it is shorter than this.canonicalName.
    */
   fun merge(that: Product): Product {
-    val name = if(canonicalName.length < that.canonicalName.length) {
+    val product = Product(this)
+    product.canonicalName = if(canonicalName.length < that.canonicalName.length) {
       canonicalName
     } else {
       that.canonicalName
     }
-    val product = Product(this)
-    product.canonicalName = name
+    product.primaryBrand = if(primaryBrand.name.length < that.primaryBrand.name.length) {
+      primaryBrand
+    } else {
+      that.primaryBrand
+    }
+    product.id       = id       ?: that.id
+    product.category = category ?: that.category
+    product.upc      = upc      ?: that.upc
+    product.modelID  = modelID  ?: that.modelID
+    product.tags.addAll(that.tags)
+    product.associatedBrands.addAll(that.associatedBrands)
     return product
   }
 
   override fun toString(): String {
-    return "Product(id='$id' canonicalName='$canonicalName', primaryBrand='$primaryBrand', upc='$upc', modelID='$modelID' tags='$tags' associatedBrands='$associatedBrands')"
+    return "Product(id='$id' canonicalName='$canonicalName', primaryBrand='$primaryBrand', upc='$upc', modelID='$modelID', category='$category', tags='$tags', associatedBrands='$associatedBrands')"
   }
 }

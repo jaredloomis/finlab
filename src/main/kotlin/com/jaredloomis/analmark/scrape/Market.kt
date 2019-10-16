@@ -8,11 +8,12 @@ import com.jaredloomis.analmark.util.getLogger
 import org.openqa.selenium.*
 import org.openqa.selenium.firefox.FirefoxDriver
 import org.openqa.selenium.firefox.FirefoxOptions
-import org.openqa.selenium.htmlunit.HtmlUnitDriver
 import org.openqa.selenium.support.ui.WebDriverWait
 import java.io.ByteArrayOutputStream
-import java.lang.Exception
+import java.io.PrintStream
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
 import java.util.concurrent.Executors
@@ -22,14 +23,6 @@ import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.math.min
 import kotlin.random.Random
-import java.io.PrintStream
-import java.nio.charset.StandardCharsets
-import org.openqa.selenium.logging.LogType
-import org.openqa.selenium.logging.LoggingPreferences
-import org.openqa.selenium.remote.CapabilityType
-import java.nio.file.Path
-import java.util.logging.Level
-
 
 enum class MarketType {
   CRAIGSLIST, EBAY, OVERSTOCK, NEWEGG
@@ -60,14 +53,27 @@ abstract class SeleniumMarket(
   private val threads = Executors.newSingleThreadExecutor()
 
   override fun init() {
-    val options = FirefoxOptions()
-      .setHeadless(headless)
+    /* TODO get HtmlUnit working
+    if(headless) {
+      driver = object : HtmlUnitDriver(true) {
+        override fun newWebClient(version: BrowserVersion): WebClient {
+          val webClient = super.newWebClient(version)
+          webClient.options.isThrowExceptionOnScriptError = false
+          return webClient
+        }
+      }
+    } else {*/
+      val options = FirefoxOptions()
+        .setHeadless(headless)
 
-    System.setProperty(
-      "webdriver.gecko.driver",
-      "C:\\Program Files\\geckodriver\\geckodriver-v0.24.0-win64\\geckodriver.exe"
-    )
-    driver =FirefoxDriver(options)
+      if(System.getProperty("webdriver.gecko.driver") == null) {
+        System.setProperty(
+          "webdriver.gecko.driver",
+          "C:\\Program Files\\geckodriver\\geckodriver-v0.24.0-win64\\geckodriver.exe"
+        )
+      }
+      driver = FirefoxDriver(options)
+    //}
   }
 
   // XXX TODO FIX this does not respect pages. Must track lastItem
@@ -110,12 +116,11 @@ abstract class SeleniumMarket(
   override fun search(query: String) {
     logger.info("[$name] Searching for '$query'")
     ensureOnProductListPage()
-    val searchBar = driver.findElement(searchInputBy)
-    searchBar.clear()
-    searchBar.sendKeys(query)
-    searchBar.sendKeys(Keys.ENTER)
-    waitForPageLoad()
-    driver.findElement(searchBtnBy).click()
+    val searchBar = findElement(searchInputBy)
+    searchBar?.clear()
+    searchBar?.sendKeys(query)
+    findElement(searchInputBy)?.sendKeys(Keys.ENTER)
+    findElement(searchBtnBy)?.click()
     waitForPageLoad()
   }
 
@@ -157,11 +162,7 @@ abstract class SeleniumMarket(
       driver.navigate().to(startURL)
       currentPage = 1
       waitForPageLoad()
-    } /*else if(findElement(productListPageIdBy) == null) {
-      driver.navigate().to(startURL)
-      waitForPageLoad()
-      repeat(currentPage) {nextPage()}
-    }*/
+    }
   }
 
   fun getText(by: By): String {
@@ -196,7 +197,7 @@ abstract class SeleniumMarket(
     threads.submit {
       try {
         val src = (driver as TakesScreenshot).getScreenshotAs(OutputType.FILE)
-        val destDir = Paths.get("data", "screenshots")
+        val destDir = Paths.get("logs", "screenshots")
         val destName = "${Date().toString()}_${tag ?: ""}"
         val destPath = findFreePath(destDir, destName, ".png")
         Files.createDirectories(destDir)
@@ -268,7 +269,7 @@ abstract class DetailedMarket(
         val product = fetchProduct()
         driver.navigate().back()
         waitForPageLoad()
-        logger.info("PRODUCT PARSED: $product")
+        logger.info("Posting parsed: $product")
         if(product == null) {
           screenshot("fetch_product_null")
         }
@@ -285,12 +286,12 @@ abstract class DetailedMarket(
 
     lastItem = maxProductI
 
-    logger.info("Retrieved postings: $posts")
+    logger.info("Retrieved ${posts.size} postings: $posts")
 
     return posts
   }
 
-  open fun parsePrice(str: String): CurrencyAmount {
+  open fun parsePrice(str: String): CurrencyAmount? {
     return CurrencyAmount(str)
   }
 
@@ -317,10 +318,12 @@ class EBay(productDB: ProductDB) : DetailedMarket(
   By.id("gh-ac"), By.id("gh-btn"), By.cssSelector("a[rel=next]"),
   By.className("s-answer-region"), By.id("itemTitle")
 ) {
+  private val descriptionBy = By.cssSelector("#desc_div, #ds_div, #ProductDetails")
+
   override fun fetchProduct(): RawPosting? {
     val url      = driver.currentUrl
     val titleStr = findElement(titleBy)?.text ?: ""
-    val descrStr = findElement(By.cssSelector("#desc_div, #ds_div, #ProductDetails"))?.text ?: ""
+    val descrStr = findElement(By.id("desc_div"))?.text ?: findElement(By.id("ds_div"))?.text ?: findElement(By.id("ProductDetails"))?.text ?: ""
     val priceStr = findElement(priceBy)?.text ?: ""
     return try {
       val post = EbayRawPosting(url, titleStr, descrStr, CurrencyAmount(priceStr), fetchAttrs())
@@ -400,18 +403,27 @@ class Overstock(productDB: ProductDB) : DetailedMarket(
     val brandBy = By.cssSelector("#brand-name a")
 
     val url      = driver.currentUrl
-    val title    = findElement(titleBy)?.text ?: ""
+    val title    = findElement(titleBy)?.text
     val priceStr = findElement(priceBy)?.text ?: ""
     val brandStr = findElement(brandBy)?.text ?: ""
     val attrs    = emptyMap<String, String>().plus(Pair("brand", brandStr))
-    return RawPosting(type, url, title, "", parsePrice(priceStr), attrs)
+    val price    = parsePrice(priceStr)
+    return if(price != null && title != null) {
+      RawPosting(type, url, title, "", price, attrs)
+    } else {
+      null
+    }
   }
 
-  override fun parsePrice(str: String): CurrencyAmount {
+  override fun parsePrice(str: String): CurrencyAmount? {
     val len     = str.length
-    val cents   = str.substring(len - 2)
-    val dollars = str.substring(0, len - 2)
-    return CurrencyAmount("$dollars.$cents")
+    return if(len > 0) {
+      val cents = str.substring(len - 2)
+      val dollars = str.substring(0, len - 2)
+      CurrencyAmount("$dollars.$cents")
+    } else {
+      null
+    }
   }
 
   override fun getRandomProductListUrls(): List<String> {

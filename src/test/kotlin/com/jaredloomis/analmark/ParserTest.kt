@@ -1,7 +1,7 @@
 package com.jaredloomis.analmark
 
 import com.jaredloomis.analmark.nlp.removeSubstring
-import com.jaredloomis.analmark.nlp.tokenize
+import com.jaredloomis.analmark.nlp.tokens
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 
@@ -9,7 +9,7 @@ import org.junit.jupiter.api.TestInstance
 class ParserTest {
   @Test
   fun tokenizeSimple() {
-    val tokens = tokenize("wasabi hello world whatup")
+    val tokens = tokens("wasabi hello world whatup")
     assert(tokens.size == 4)
     assert(tokens[2] == "world")
   }

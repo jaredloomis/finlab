@@ -13,63 +13,60 @@ import kotlin.random.Random
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MarketTest {
   var marketCounter: Int = Random.nextInt(100)
-  val maxBatchSize: Long = 3
+  val maxBatchSize: Long = Random.nextLong(0, 20)
+  val productDB = DummyProductDBModel()
+  val market1 = randomMarket(productDB)
+  val market2 = randomMarket(productDB)
+  
+  @BeforeEach
+  fun setup() {
+    market1.init()
+    market1.headless = false
+
+    market2.init()
+    market2.headless = false
+  }
+  
+  @AfterEach
+  fun teardown() {
+    market1.quit()
+    market2.quit()
+  }
 
   @Test
   fun fetchProductsFromTwoMarketplaces() {
-    val query = "sony"
-    val batchCount = 2
-    val buyPosts: MutableList<RawPosting> = ArrayList()
+    val batchCount = 4
+    val posts: MutableList<RawPosting> = ArrayList()
+    var failCount = 0
 
-    val productDB = DummyProductDBModel()//DummyProductDB(DummyBrandDB())
-
-    val buyMarket: SeleniumMarket = randomMarket(productDB) as SeleniumMarket
-    buyMarket.headless = false
-    val sellMarket: SeleniumMarket = randomMarket(productDB) as SeleniumMarket
-    sellMarket.headless = false
-    println("Markets: ${buyMarket.type} --> ${sellMarket.type}")
-
-    buyMarket.init()
-    buyMarket.search(query)
+    market1.navigateToRandomProductList()
     repeat(batchCount) {
-      val buyBatch = buyMarket.fetchProductBatch(maxSize=maxBatchSize)
-      val batchSize = buyBatch.size.toLong()
-      assert(batchSize == maxBatchSize) {"Batch size should be $maxBatchSize. $batchSize"}
-      buyPosts.addAll(buyBatch)
+      val batch = market1.fetchProductBatch(maxSize=maxBatchSize)
+      val batchSize = batch.size.toLong()
+      assert(batchSize <= maxBatchSize) {"Batch size should be <= $maxBatchSize. $batchSize. Batch no.$it"}
+      if(batchSize < 0) {
+        ++failCount
+      }
+      posts.addAll(batch)
     }
-    buyMarket.quit()
+    assert(failCount < batchCount / 4) {"Market successfully fetches a product batch >3/4 of the time $failCount / $batchCount"}
 
-    sellMarket.init()
-    val sellPosts = buyPosts.flatMap {post ->
-      sellMarket.search(post.brand?:"" + " " + post.title)
-      val sellBatch = sellMarket.fetchProductBatch(maxSize=maxBatchSize)
-      val batchSize = sellBatch.size.toLong()
-      assert(batchSize <= maxBatchSize) {"Batch size should be less than $maxBatchSize. $batchSize"}
-      sellBatch
-    }
-    sellMarket.quit()
-
-    val allPosts = HashSet<RawPosting>()
+    val postsSet = HashSet<RawPosting>()
     // Assert posts are not duplicated
-    buyPosts.forEach {post ->
-      assert(!allPosts.contains(post)) {"posts should be unique. ${buyMarket.type} $post $allPosts"}
-      allPosts.add(post)
-    }
-    val sellPostsSet = HashSet<RawPosting>()
-    sellPosts.forEach {post ->
-      assert(!sellPostsSet.contains(post)) {"posts should be unique. ${sellMarket.type} $post $sellPostsSet"}
-      sellPostsSet.add(post)
-      allPosts.add(post)
+    posts.forEach {post ->
+      assert(!postsSet.contains(post)) {"posts should be unique. ${market1.type} $post $postsSet"}
+      postsSet.add(post)
     }
     // Assert post titles are not empty, and have valid price
-    allPosts.forEach {post ->
+    posts.forEach {post ->
       assert(post.title.isNotEmpty()) {"post titles should not be empty"}
       assert(post.price.pennies > 0) {"post prices should not be negative"}
     }
   }
 
-  private fun randomMarket(productDB: ProductDB): Market {
-    println(marketCounter)
+  private fun randomMarket(productDB: ProductDB): SeleniumMarket {
+    return createMarket(MarketType.EBAY, productDB) as SeleniumMarket
+    /*
     val type = when(marketCounter++ % 4) {
       0    -> MarketType.CRAIGSLIST
       1    -> MarketType.EBAY
@@ -78,5 +75,6 @@ class MarketTest {
       else -> MarketType.CRAIGSLIST
     }
     return createMarket(type, productDB)
+     */
   }
 }

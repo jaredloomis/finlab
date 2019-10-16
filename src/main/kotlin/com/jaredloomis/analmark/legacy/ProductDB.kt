@@ -6,7 +6,7 @@ import com.jaredloomis.analmark.model.Brand
 import com.jaredloomis.analmark.model.Product
 import com.jaredloomis.analmark.model.RawPosting
 import com.jaredloomis.analmark.nlp.stem
-import com.jaredloomis.analmark.nlp.tokenize
+import com.jaredloomis.analmark.nlp.tokens
 import org.postgresql.util.PSQLException
 import java.sql.Connection
 import kotlin.collections.HashSet
@@ -30,12 +30,12 @@ class DummyProductDB(val brandDB: BrandDB) : ProductDB1 {
 
   // TODO return matches in order, instead of just best match
   override fun findMatches(post: RawPosting): Stream<Product> {
-    val searchTokens = tokenize(post.title).map {stem(it)}
+    val searchTokens = tokens(post.title).map {stem(it)}
     var maxScore = 0
     var bestMatch: Product? = null
 
     for(product in products.filter {post.brand == null || it.primaryBrand.name == post.brand}) {
-      val productTokens = tokenize(product.primaryBrand.name + " " + product.canonicalName)
+      val productTokens = tokens(product.primaryBrand.name + " " + product.canonicalName)
         .map {stem(it)}
       // Score = number of tokens which are common across both search product and search
       val score = productTokens.filter {

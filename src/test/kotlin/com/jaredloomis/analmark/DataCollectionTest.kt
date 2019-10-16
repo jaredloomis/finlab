@@ -18,48 +18,48 @@ import org.junit.jupiter.api.TestInstance
 class DataCollectionTest {
   val productDB: DBModel<RawPosting, Product> = PostgresProductDBModel()
   val postingDB: DBModel<Product, ProductPosting> = PostgresPostingDBModel(productDB)
-  val buyMarket   = EBay(productDB) //randomMarket(productDB)
-  val recognition = DBCachingProductRecognition(productDB, postingDB)
+  val market       = EBay(productDB) //randomMarket(productDB)
+  val recognition  = DBCachingProductRecognition(productDB, postingDB)
   val maxBatchSize = 999L//5L
   val batchCount = 5
   val logger = getLogger(this::class)
 
   @BeforeAll
   fun init() {
-    //buyMarket.headless = false
-    buyMarket.init()
+    market.init()
   }
 
   @AfterAll
   fun destroy() {
-    buyMarket.quit()
+    market.quit()
   }
 
   @Test
   fun collectData() {
     while(true) {
-      val buyPosts = ArrayList<RawPosting>()
+      // Go to a random product list
+      market.navigateToRandomProductList()
 
-      // Populate buyPosts
-      buyMarket.navigateToRandomProductList()
+      // Send n batches of posting through the recognition -> db pipeline
       repeat(batchCount) {
-        val buyBatch = buyMarket.fetchProductBatch(maxSize = maxBatchSize)
-        buyPosts.addAll(buyBatch)
+        // Fetch a batch of postings
+        val posts = market.fetchProductBatch(maxSize=maxBatchSize)
+
+        // Create products from postings, add both to db
+        val products = posts
+          .mapNotNull {
+            val rec = recognition.recognize(it, productDB.find(it))
+            rec ?: recognition.create(it)
+          }
+          .map {
+            if(it.product.category == null) {
+              logger.info("Product category is null")
+            }
+            postingDB.insert(it)
+          }
+
+        logger.info("Retrieved product batch $products")
       }
-
-      //assert(buyPosts.isNotEmpty()) {"buyMarket retrieved 1 or more postings."}
-
-      // Create Products from buy Postings, and add postings to db
-      val buyProducts = buyPosts
-        .mapNotNull {
-          val rec = recognition.recognize(it, productDB.find(it))
-          rec ?: recognition.create(it)
-        }
-        .map {postingDB.insert(it)}
-
-      logger.info("Retrieved products $buyProducts")
-
-      //assert(buyProducts.isNotEmpty()) {"1 or more products were created from buyMarket postings. $buyPosts"}
     }
   }
 }

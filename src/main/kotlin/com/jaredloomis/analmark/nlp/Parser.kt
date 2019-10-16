@@ -1,19 +1,57 @@
 package com.jaredloomis.analmark.nlp
 
 import opennlp.tools.stemmer.PorterStemmer
+import java.nio.file.Files
+import java.nio.file.Paths
+
+// soon
+class ParsingString(val str: String) {
+  val words: List<String> get() = _words.value
+  val stemmed: List<String> get() = _stemmed.value
+  val withoutStopTokens: List<String> get() = _withoutStopTokens.value
+
+  private val stemmer = PorterStemmer()
+
+  private val _words: Lazy<List<String>> = lazy {
+    str.split(" ", "\n", "\t")
+      .filter {token -> token.isNotEmpty() && token.any {!it.isWhitespace()}}
+  }
+
+  private val _stemmed: Lazy<List<String>> = lazy {
+    _words.value.map {stemmer.stem(it)}
+  }
+
+  private val _withoutStopTokens: Lazy<List<String>> = lazy {
+    val stopTokens = Files.readAllLines(Paths.get("data", "stoptokens.txt")).toSet()
+    _words.value.filter {stopTokens.contains(it)}
+  }
+
+  fun containsIgnoreCase(str: String): Boolean {
+    val lowStr = str.toLowerCase()
+    for(i in this.words.indices) {
+      if(this.words[i].toLowerCase() == lowStr) {
+        return true
+      }
+    }
+    return false
+  }
+}
 
 private val stemmer = PorterStemmer()
 
 fun wordsInCommon(reference: String, test: String): List<String> {
-  val refToks = tokenize(reference)
-  return tokenize(test)
+  return wordsInCommon(tokens(reference), tokens(test))
+}
+
+fun wordsInCommon(reference: List<String>, test: List<String>): List<String> {
+  return test
     .filter {token ->
       val lcTok = token.toLowerCase()
-      refToks.any {it.toLowerCase() == lcTok}
+      reference.any {it.toLowerCase() == lcTok}
     }
 }
 
-fun tokenize(title: String): List<String> {
+fun tokens(title: String): List<String> {
   return title.split(" ")
     .filter {token -> token.isNotEmpty()}
 }
@@ -41,6 +79,19 @@ fun List<String>.containsIgnoreCase(str: String): Boolean {
 fun stem(str: String): String {
   stemmer.stem(str)
   return stemmer.toString()
+}
+
+val stopTokens = lazy {
+  Files.readAllLines(Paths.get("data", "stoptokens.txt"))
+    .toSet()
+    .map {it.toLowerCase()}
+}
+fun removeStopTokens(tokens: List<String>, caseSensitive: Boolean=false): List<String> {
+  return tokens.filter {
+    !stopTokens.value.contains(
+      if(caseSensitive) it else it.toLowerCase()
+    )
+  }
 }
 
 // A6000

@@ -9,6 +9,7 @@ import com.jaredloomis.analmark.model.ProductPosting
 import com.jaredloomis.analmark.model.RawPosting
 import com.jaredloomis.analmark.nlp.DBCachingProductRecognition
 import com.jaredloomis.analmark.scrape.*
+import com.jaredloomis.analmark.util.getLogger
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -27,6 +28,8 @@ class RecognizeFromMarketTest {
   val maxBatchSize = 5L
   val batchCount = 2
 
+  val logger = getLogger(this::class)
+
   @BeforeAll
   fun init() {
     //buyMarket.headless = false
@@ -38,7 +41,7 @@ class RecognizeFromMarketTest {
   @AfterAll
   fun destroy() {
     buyMarket.quit()
-    //sellMarket.quit()
+    sellMarket.quit()
   }
 
   @Test
@@ -54,6 +57,9 @@ class RecognizeFromMarketTest {
     }
     buyMarket.quit()
 
+    logger.info("Posts (check if they have categories) $buyPosts")
+    logger.info("Successfully parsed ${buyPosts.size} posts")
+
     assert(buyPosts.isNotEmpty()) {"buyMarket retrieved 1 or more postings."}
 
     // Create Products from buy Postings, and add postings to db
@@ -63,6 +69,9 @@ class RecognizeFromMarketTest {
         rec ?: recognition.create(it)
       }
       .map {postingDB.insert(it)}
+
+    logger.info("Products (check if they have categories) $buyProducts")
+    logger.info("Successfully parsed ${buyProducts.size} products")
 
     assert(buyProducts.isNotEmpty()) {"1 or more products were created from buyMarket postings. $buyPosts"}
 
@@ -87,7 +96,7 @@ class RecognizeFromMarketTest {
 
     assert(sellProducts.isNotEmpty()) {"At least one of the posts found on buy site resulted in a query result on sell site."}
 
-    val matchedProducts = sellProducts
+    val matchedPosts = sellProducts
       .mapNotNull {productPosting ->
         val match = buyProducts.find {it.product == productPosting.product}
         if(match != null) {
@@ -99,7 +108,7 @@ class RecognizeFromMarketTest {
 
     assert(sellProducts.isNotEmpty()) {"At least one of the posts found on buy site was matched to a post on sell site."}
 
-    matchedProducts
+    matchedPosts
       .sortedBy {productPostingPair ->
         abs(productPostingPair.first.price.pennies - productPostingPair.second.price.pennies)
       }
