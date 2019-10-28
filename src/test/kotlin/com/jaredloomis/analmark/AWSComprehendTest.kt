@@ -14,7 +14,7 @@ class AWSComprehendTest {
 
   @Test
   fun comprehendTest() {
-    val post = postingDB.find(Product("", Brand("sony"))).findAny().orElse(null)
+    val post = postingDB.all().findAny().orElse(null)
     println("POST: ${post.posting}")
     println(AWSComprehend()
       .comprehendBrand("${post.posting.title}. ${post.posting.description}"))

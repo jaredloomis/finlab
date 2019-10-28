@@ -13,7 +13,9 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import java.util.*
 import java.util.stream.Collectors
+import kotlin.collections.ArrayList
 import kotlin.random.Random
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -31,6 +33,7 @@ class FindMatchingPostingsTest {
 
   @BeforeAll
   fun init() {
+    market.headless = false
     market.init()
   }
 
@@ -45,9 +48,15 @@ class FindMatchingPostingsTest {
   @Test
   fun findMatchingPostings() {
     val allProducts = productDB.all().collect(Collectors.toList())
+    allProducts.shuffle()
     val productCount = 20
-    val randIndex = Random.nextInt(0, Math.max(0, allProducts.size - productCount))
-    val products = allProducts.subList(randIndex, randIndex + productCount)
+    val maxIndex  = Math.max(0, allProducts.size - productCount)
+    val randIndex = if(maxIndex == 0) {
+      0
+    } else {
+      Random.nextInt(0, maxIndex)
+    }
+    val products = allProducts.subList(0, Math.min(allProducts.size, productCount)) //allProducts.subList(randIndex, Math.min(allProducts.size, randIndex + productCount))
 
     logger.info("[FindMatchingPosts] matching ${products.size} products from database to postings from ${market.type}")
 
@@ -59,7 +68,9 @@ class FindMatchingPostingsTest {
         posts.addAll(buyBatch)
       }
 
-      posts.map {postingDB.insert(ProductPosting(product, it))}
+      posts
+        .filter {recognition.recognize(it, productDB.find(it)) != null}
+        .map {postingDB.insert(ProductPosting(product, it))}
     }
 
     logger.info("[FindMatchingPosts] found $foundProdPosts")

@@ -120,6 +120,7 @@ abstract class SeleniumMarket(
     searchBar?.clear()
     searchBar?.sendKeys(query)
     findElement(searchInputBy)?.sendKeys(Keys.ENTER)
+    waitForPageLoad()
     findElement(searchBtnBy)?.click()
     waitForPageLoad()
   }
@@ -198,7 +199,7 @@ abstract class SeleniumMarket(
       try {
         val src = (driver as TakesScreenshot).getScreenshotAs(OutputType.FILE)
         val destDir = Paths.get("logs", "screenshots")
-        val destName = "${Date().toString()}_${tag ?: ""}"
+        val destName = "${Date()}_${tag ?: ""}"
         val destPath = findFreePath(destDir, destName, ".png")
         Files.createDirectories(destDir)
         Files.move(src.toPath(), destPath)
@@ -226,13 +227,13 @@ abstract class SeleniumMarket(
     return dir.resolve("$cname$suffix$extension")
   }
 
-  fun waitForPageLoad() {
+  fun waitForPageLoad(afterDelay: Long=500) {
     WebDriverWait(driver, 10000).until {webDriver ->
       if(webDriver is JavascriptExecutor)
         return@until (webDriver as JavascriptExecutor).executeScript("return document.readyState") == "complete"
       false
     }
-    Thread.sleep(500)
+    Thread.sleep(afterDelay)
   }
 }
 
@@ -258,7 +259,7 @@ abstract class DetailedMarket(
 
   override fun fetchProductBatch(maxSize: Long): List<RawPosting> {
     ensureOnProductListPage()
-
+    waitForPageLoad(1000)
     val productElems = findElements(productBy)
     val maxProductI  = min(productElems.size, lastItem + 1 + maxSize.toInt())
     val posts = (lastItem+1 until maxProductI)

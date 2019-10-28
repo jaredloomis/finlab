@@ -1,6 +1,6 @@
 WITH prod_posts AS
 (
-SELECT a.*, b.product_name, count(*) over(Partition by b.id) cnt
+SELECT a.*, b.product_name, COUNT(*) OVER(PARTITION BY b.id) cnt
 FROM postings a
 INNER JOIN products b ON a.product = b.id
 )
