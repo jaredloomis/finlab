@@ -10,6 +10,6 @@ enum class ForexMarketID {
 
 abstract class ForexMarket constructor(val type: ForexMarketID, val name: String, val url: String) {
     abstract fun init()
-    abstract fun fetchConversion(from: Currency, to: Currency): CurrencyConversion
+    abstract fun fetchRates(base: Currency): List<CurrencyConversion>
     abstract fun quit()
 }
