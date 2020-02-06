@@ -1,8 +1,12 @@
 package com.jaredloomis.analmark.db
 
-import com.jaredloomis.analmark.scrape.MarketType
-import com.jaredloomis.analmark.model.*
+import com.jaredloomis.analmark.model.CurrencyAmount
+import com.jaredloomis.analmark.model.productmarket.Brand
+import com.jaredloomis.analmark.model.productmarket.Product
+import com.jaredloomis.analmark.model.productmarket.ProductPosting
+import com.jaredloomis.analmark.model.productmarket.RawPosting
 import com.jaredloomis.analmark.nlp.wordsInCommon
+import com.jaredloomis.analmark.scrape.ProductMarketType
 import com.jaredloomis.analmark.util.getLogger
 import org.postgresql.util.PSQLException
 import java.sql.*
@@ -14,7 +18,7 @@ abstract class DBModel<Q, T> {
   abstract fun find(query: Q): Stream<T>
   abstract fun all(): Stream<T>
   abstract fun insert(entity: T): T
-  abstract fun findByText(str: String): T?
+  abstract fun findByText(text: String): T?
 
   open fun findOne(query: Q): T? {
     return find(query).findFirst().orElse(null)
@@ -88,9 +92,9 @@ class DummyProductDBModel : DBModel<RawPosting, Product>() {
       .filter {product -> wordsInCommon(product.canonicalName, query.title).size > 1}
   }
 
-  override fun findByText(str: String): Product? {
+  override fun findByText(text: String): Product? {
     return products.stream()
-      .filter {product -> product.canonicalName == str}
+      .filter {product -> product.canonicalName == text}
       .findAny()
       .orElse(null)
   }
@@ -106,8 +110,8 @@ class DummyProductDBModel : DBModel<RawPosting, Product>() {
 }
 
 class PostgresPostingDBModel(
-  val productDBModel: DBModel<RawPosting, Product>,
-  val tableName: String="public.postings", val productTableName: String="public.products"
+        val productDBModel: DBModel<RawPosting, Product>,
+        val tableName: String="public.postings", val productTableName: String="public.products"
   ) : DBModel<Product, ProductPosting>() {
   private val ID_COLUMN_NAME          = "id"
   private val MARKET_COLUMN_NAME      = "market"
@@ -242,7 +246,7 @@ class PostgresPostingDBModel(
     if(query.id != null)
       stmt.setLong(1, query.id!!)
     else
-      stmt.setNull(1, java.sql.Types.BIGINT)
+      stmt.setNull(1, Types.BIGINT)
     stmt.setString(2, matcherString(query.canonicalName))
     stmt.setString(3, matcherString(query.primaryBrand.name))
     stmt.setString(4, matcherString(query.primaryBrand.name))
@@ -265,13 +269,13 @@ class PostgresPostingDBModel(
     return matches.stream()
   }
 
-  override fun findByText(str: String): ProductPosting? {
+  override fun findByText(text: String): ProductPosting? {
     var ret: ProductPosting? = null
     val querySQL = "SELECT * FROM $tableName WHERE title ILIKE ?"
 
     val con     = connect()
     val stmt    = con.prepareStatement(querySQL)
-    stmt.setString(1, matcherString(str))
+    stmt.setString(1, matcherString(text))
     val results = stmt.executeQuery()
     if(results.next()) {
       ret = parseProductPosting(results)
@@ -313,7 +317,7 @@ class PostgresPostingDBModel(
     val description = results.getString(DESCRIPTION_COLUMN_NAME)
     val specsStr    = results.getString(SPECS_COLUMN_NAME)
     val seenAt      = results.getDate(SEEN_COLUMN_NAME)
-    val market      = MarketType.valueOf(marketStr)
+    val market      = ProductMarketType.valueOf(marketStr)
     val price       = CurrencyAmount(priceCents)
     val specs       = specsStr.split(",")
       .mapNotNull {specStr ->
@@ -328,7 +332,7 @@ class PostgresPostingDBModel(
     val rawPost     = RawPosting(market, url, title, description, price, specs)
     val product     = productDBModel.findByID(productID)
     return if(product != null) {
-      ProductPosting(id, product, rawPost)
+        ProductPosting(id, product, rawPost)
     } else {
       null
     }

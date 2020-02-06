@@ -1,11 +1,11 @@
 package com.jaredloomis.analmark
 
-import com.jaredloomis.analmark.model.Brand
 import com.jaredloomis.analmark.model.CurrencyAmount
-import com.jaredloomis.analmark.model.Product
-import com.jaredloomis.analmark.model.RawPosting
+import com.jaredloomis.analmark.model.productmarket.Brand
+import com.jaredloomis.analmark.model.productmarket.Product
+import com.jaredloomis.analmark.model.productmarket.RawPosting
 import com.jaredloomis.analmark.nlp.SimpleProductRecognition
-import com.jaredloomis.analmark.scrape.MarketType
+import com.jaredloomis.analmark.scrape.ProductMarketType
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 
@@ -16,9 +16,9 @@ class ProductRecognitionTest {
   @Test
   fun simpleRecognition() {
     val posting = RawPosting(
-      MarketType.EBAY,
-      "", "Sony Xav-ax5000 7 Carplay/android Auto Media Receiver With Bluetooth", "", CurrencyAmount("$299"),
-      emptyMap<String, String>().plus(Pair("brand", "Sony"))
+            ProductMarketType.EBAY,
+            "", "Sony Xav-ax5000 7 Carplay/android Auto Media Receiver With Bluetooth", "", CurrencyAmount("$299"),
+            emptyMap<String, String>().plus(Pair("brand", "Sony"))
     )
     val product1 = Product("Carplay", Brand("Sony"))
     val product2 = Product("Walkman", Brand("Sony"))

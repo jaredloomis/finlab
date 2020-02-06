@@ -4,9 +4,9 @@ import com.jaredloomis.analmark.db.DBModel
 import com.jaredloomis.analmark.db.PostgresPostingDBModel
 import com.jaredloomis.analmark.db.PostgresProductDBModel
 import com.jaredloomis.analmark.legacy.ProductDB
-import com.jaredloomis.analmark.model.Product
-import com.jaredloomis.analmark.model.ProductPosting
-import com.jaredloomis.analmark.model.RawPosting
+import com.jaredloomis.analmark.model.productmarket.Product
+import com.jaredloomis.analmark.model.productmarket.ProductPosting
+import com.jaredloomis.analmark.model.productmarket.RawPosting
 import com.jaredloomis.analmark.nlp.DBCachingProductRecognition
 import com.jaredloomis.analmark.scrape.*
 import com.jaredloomis.analmark.util.getLogger
@@ -18,7 +18,7 @@ import kotlin.math.abs
 import kotlin.random.Random
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class RecognizeFromMarketTest {
+class RecognizeFromProductMarketTest {
   var marketCounter: Int = Random.nextInt(100)
   val productDB: DBModel<RawPosting, Product> = PostgresProductDBModel()
   val postingDB: DBModel<Product, ProductPosting> = PostgresPostingDBModel(productDB)
@@ -120,15 +120,15 @@ class RecognizeFromMarketTest {
       }
   }
 
-  private fun randomMarket(productDB: ProductDB): Market {
+  private fun randomMarket(productDB: ProductDB): ProductMarket {
     val type = when(marketCounter++ % 2) {
-      0    -> MarketType.EBAY
-      1    -> MarketType.CRAIGSLIST
-      2    -> MarketType.OVERSTOCK
-      3    -> MarketType.NEWEGG
-      else -> MarketType.CRAIGSLIST
+      0    -> ProductMarketType.EBAY
+      1    -> ProductMarketType.CRAIGSLIST
+      2    -> ProductMarketType.OVERSTOCK
+      3    -> ProductMarketType.NEWEGG
+      else -> ProductMarketType.CRAIGSLIST
     }
-    val market = createMarket(type, productDB) as SeleniumMarket
+    val market = createMarket(type, productDB) as SeleniumProductMarket
     market.headless = false
     return market
   }

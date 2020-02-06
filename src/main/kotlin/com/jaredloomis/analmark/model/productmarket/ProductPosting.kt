@@ -1,4 +1,4 @@
-package com.jaredloomis.analmark.model
+package com.jaredloomis.analmark.model.productmarket
 
 data class ProductPosting(val product: Product, val posting: RawPosting) {
   var id: Long? = null

@@ -1,14 +1,14 @@
-package com.jaredloomis.analmark.model
+package com.jaredloomis.analmark.model.productmarket
 
-import com.jaredloomis.analmark.scrape.MarketType
-import com.jaredloomis.analmark.nlp.removeSubstring
+import com.jaredloomis.analmark.model.CurrencyAmount
+import com.jaredloomis.analmark.scrape.ProductMarketType
 import java.time.Instant
 
 open class RawPosting(
-  val market: MarketType, val url: String,
-  val title: String, val description: String, val price: CurrencyAmount,
+        val market: ProductMarketType, val url: String,
+        val title: String, val description: String, val price: CurrencyAmount,
   // Specs keys should all be lower-case
-  _specs: Map<String, String>
+        _specs: Map<String, String>
 ) {
   val brand: String?
     get() = specs["brand"] ?: specs["maker"] ?: specs["manufacturer"] ?: specs["make"]
@@ -60,7 +60,7 @@ open class RawPosting(
 }
 
 class OverstockRawPosting(url: String, title: String, description: String, price: CurrencyAmount, specs: Map<String, String>)
-  : RawPosting(MarketType.OVERSTOCK, url, title, description, price, specs) {
+  : RawPosting(ProductMarketType.OVERSTOCK, url, title, description, price, specs) {
   override fun parsePrice(str: String): CurrencyAmount {
     val len     = str.length
     val cents   = str.substring(len - 2)
@@ -70,5 +70,5 @@ class OverstockRawPosting(url: String, title: String, description: String, price
 }
 
 class EbayRawPosting(url: String, title: String, description: String, price: CurrencyAmount, specs: Map<String, String>)
-  : RawPosting(MarketType.EBAY, url, title, description, price, specs) {
+  : RawPosting(ProductMarketType.EBAY, url, title, description, price, specs) {
 }

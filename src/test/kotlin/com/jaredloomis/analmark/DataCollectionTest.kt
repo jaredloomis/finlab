@@ -3,9 +3,9 @@ package com.jaredloomis.analmark
 import com.jaredloomis.analmark.db.DBModel
 import com.jaredloomis.analmark.db.PostgresPostingDBModel
 import com.jaredloomis.analmark.db.PostgresProductDBModel
-import com.jaredloomis.analmark.model.Product
-import com.jaredloomis.analmark.model.ProductPosting
-import com.jaredloomis.analmark.model.RawPosting
+import com.jaredloomis.analmark.model.productmarket.Product
+import com.jaredloomis.analmark.model.productmarket.ProductPosting
+import com.jaredloomis.analmark.model.productmarket.RawPosting
 import com.jaredloomis.analmark.nlp.DBCachingProductRecognition
 import com.jaredloomis.analmark.scrape.EBay
 import com.jaredloomis.analmark.util.getLogger

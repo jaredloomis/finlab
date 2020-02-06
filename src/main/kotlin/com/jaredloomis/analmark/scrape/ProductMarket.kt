@@ -2,8 +2,8 @@ package com.jaredloomis.analmark.scrape
 
 import com.jaredloomis.analmark.legacy.ProductDB
 import com.jaredloomis.analmark.model.CurrencyAmount
-import com.jaredloomis.analmark.model.EbayRawPosting
-import com.jaredloomis.analmark.model.RawPosting
+import com.jaredloomis.analmark.model.productmarket.EbayRawPosting
+import com.jaredloomis.analmark.model.productmarket.RawPosting
 import com.jaredloomis.analmark.util.getLogger
 import org.openqa.selenium.*
 import org.openqa.selenium.firefox.FirefoxDriver
@@ -24,11 +24,11 @@ import kotlin.collections.HashMap
 import kotlin.math.min
 import kotlin.random.Random
 
-enum class MarketType {
+enum class ProductMarketType {
   CRAIGSLIST, EBAY, OVERSTOCK, NEWEGG
 }
 
-abstract class Market constructor(val type: MarketType, val productDB: ProductDB, val name: String, val startURL: String) {
+abstract class ProductMarket constructor(val type: ProductMarketType, val productDB: ProductDB, val name: String, val startURL: String) {
   abstract fun init()
   abstract fun fetchProductBatch(maxSize: Long=Long.MAX_VALUE): List<RawPosting> // TODO refactor to Stream<RawPosting>
   abstract fun search(query: String)
@@ -36,12 +36,12 @@ abstract class Market constructor(val type: MarketType, val productDB: ProductDB
   abstract fun navigateToRandomProductList()
 }
 
-abstract class SeleniumMarket(
-  type: MarketType, productDB: ProductDB, name: String, startURL: String,
-  val productBy: By, val titleBy: By, val priceBy: By,
-  val searchInputBy: By, val searchBtnBy: By,
-  val nextPageBtnBy: By, val productListPageIdBy: By)
-  : Market(type, productDB, name, startURL) {
+abstract class SeleniumProductMarket(
+        type: ProductMarketType, productDB: ProductDB, name: String, startURL: String,
+        val productBy: By, val titleBy: By, val priceBy: By,
+        val searchInputBy: By, val searchBtnBy: By,
+        val nextPageBtnBy: By, val productListPageIdBy: By)
+  : ProductMarket(type, productDB, name, startURL) {
 
   lateinit var driver: WebDriver
   var headless: Boolean = true
@@ -237,12 +237,12 @@ abstract class SeleniumMarket(
   }
 }
 
-abstract class DetailedMarket(
-  type: MarketType, productDB: ProductDB, name: String, startURL: String,
-  productBy: By, titleBy: By, priceBy: By,
-  searchInputBy: By, searchBtnBy: By,
-  nextPageBtnBy: By, productListPageIdBy: By, val productPageIdBy: By)
-  : SeleniumMarket(type, productDB, name, startURL, productBy, titleBy, priceBy,
+abstract class DetailedProductMarket(
+        type: ProductMarketType, productDB: ProductDB, name: String, startURL: String,
+        productBy: By, titleBy: By, priceBy: By,
+        searchInputBy: By, searchBtnBy: By,
+        nextPageBtnBy: By, productListPageIdBy: By, val productPageIdBy: By)
+  : SeleniumProductMarket(type, productDB, name, startURL, productBy, titleBy, priceBy,
                         searchInputBy, searchBtnBy, nextPageBtnBy, productListPageIdBy) {
 
   open fun fetchProduct(): RawPosting? {
@@ -301,8 +301,8 @@ abstract class DetailedMarket(
   }
 }
 
-class Craigslist(productDB: ProductDB) : DetailedMarket(
-  MarketType.CRAIGSLIST, productDB, "Craigslist", "https://sandiego.craigslist.org/search",
+class Craigslist(productDB: ProductDB) : DetailedProductMarket(
+  ProductMarketType.CRAIGSLIST, productDB, "Craigslist", "https://sandiego.craigslist.org/search",
   By.className("result-title"), By.id("titletextonly"), By.className("price"),
   By.id("query"), By.className("searchbtn"), By.cssSelector(".button.next"),
   By.className("pagenum"), By.id("titletextonly")
@@ -312,8 +312,8 @@ class Craigslist(productDB: ProductDB) : DetailedMarket(
   }
 }
 
-class EBay(productDB: ProductDB) : DetailedMarket(
-  MarketType.EBAY, productDB, "eBay", "https://www.ebay.com/",
+class EBay(productDB: ProductDB) : DetailedProductMarket(
+  ProductMarketType.EBAY, productDB, "eBay", "https://www.ebay.com/",
   By.cssSelector(".s-item__link, a[itemprop=url]"), By.id("itemTitle"),
   By.cssSelector("#prcIsum, #prcIsum_bidPrice"),
   By.id("gh-ac"), By.id("gh-btn"), By.cssSelector("a[rel=next]"),
@@ -380,8 +380,8 @@ class EBay(productDB: ProductDB) : DetailedMarket(
   }
 }
 
-class NewEgg(productDB: ProductDB) : SeleniumMarket(
-  MarketType.NEWEGG, productDB, "New Egg", "https://www.newegg.com/",
+class NewEgg(productDB: ProductDB) : SeleniumProductMarket(
+  ProductMarketType.NEWEGG, productDB, "New Egg", "https://www.newegg.com/",
   By.className("item-container"), By.className("item-title"), By.className("price-current"),
   By.id("haQuickSearchBox"), By.className("search-bar-btn"),
   By.cssSelector("button[aria-label=Next]"),
@@ -392,8 +392,8 @@ class NewEgg(productDB: ProductDB) : SeleniumMarket(
   }
 }
 
-class Overstock(productDB: ProductDB) : DetailedMarket(
-  MarketType.OVERSTOCK, productDB, "Overstock.com", "https://www.overstock.com/",
+class Overstock(productDB: ProductDB) : DetailedProductMarket(
+  ProductMarketType.OVERSTOCK, productDB, "Overstock.com", "https://www.overstock.com/",
   By.className("productCardLink"), By.className("product-title"),
   By.className("monetary-price-value"),
   By.className("search_searchBar_de"), By.cssSelector("#headerSearchContainer button[type=submit]"),
@@ -432,11 +432,11 @@ class Overstock(productDB: ProductDB) : DetailedMarket(
   }
 }
 
-fun createMarket(ty: MarketType, productDB: ProductDB): Market {
+fun createMarket(ty: ProductMarketType, productDB: ProductDB): ProductMarket {
   return when(ty) {
-    MarketType.CRAIGSLIST -> Craigslist(productDB)
-    MarketType.EBAY -> EBay(productDB)
-    MarketType.NEWEGG -> NewEgg(productDB)
-    MarketType.OVERSTOCK -> Overstock(productDB)
+    ProductMarketType.CRAIGSLIST -> Craigslist(productDB)
+    ProductMarketType.EBAY -> EBay(productDB)
+    ProductMarketType.NEWEGG -> NewEgg(productDB)
+    ProductMarketType.OVERSTOCK -> Overstock(productDB)
   }
 }

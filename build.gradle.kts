@@ -25,6 +25,7 @@ tasks.named<Test>("test") {
 repositories {
   mavenCentral()
   jcenter()
+  maven(url = "https://dl.bintray.com/arrow-kt/arrow-kt/")
 }
 
 dependencies {
@@ -39,6 +40,7 @@ dependencies {
   implementation("org.apache.commons:commons-csv:1.7")
   implementation("com.amazonaws:aws-java-sdk-comprehend:1.11.645")
   implementation("org.seleniumhq.selenium:htmlunit-driver:2.36.0")
+  val arrow_version = "0.10.4"
 
   testImplementation("org.junit.jupiter:junit-jupiter-engine:5.5.1")
 }

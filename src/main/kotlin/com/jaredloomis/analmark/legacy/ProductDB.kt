@@ -1,15 +1,14 @@
 package com.jaredloomis.analmark.legacy
 
-import com.jaredloomis.analmark.nlp.containsIgnoreCase
 import com.jaredloomis.analmark.db.DBModel
-import com.jaredloomis.analmark.model.Brand
-import com.jaredloomis.analmark.model.Product
-import com.jaredloomis.analmark.model.RawPosting
+import com.jaredloomis.analmark.model.productmarket.Brand
+import com.jaredloomis.analmark.model.productmarket.Product
+import com.jaredloomis.analmark.model.productmarket.RawPosting
+import com.jaredloomis.analmark.nlp.containsIgnoreCase
 import com.jaredloomis.analmark.nlp.stem
 import com.jaredloomis.analmark.nlp.tokens
 import org.postgresql.util.PSQLException
 import java.sql.Connection
-import kotlin.collections.HashSet
 import java.sql.DriverManager
 import java.util.stream.Stream
 

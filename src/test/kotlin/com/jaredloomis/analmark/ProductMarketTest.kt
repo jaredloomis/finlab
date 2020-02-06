@@ -2,16 +2,18 @@ package com.jaredloomis.analmark
 
 import com.jaredloomis.analmark.db.DummyProductDBModel
 import com.jaredloomis.analmark.legacy.ProductDB
-import com.jaredloomis.analmark.model.RawPosting
-import com.jaredloomis.analmark.scrape.Market
-import com.jaredloomis.analmark.scrape.MarketType
-import com.jaredloomis.analmark.scrape.SeleniumMarket
+import com.jaredloomis.analmark.model.productmarket.RawPosting
+import com.jaredloomis.analmark.scrape.ProductMarketType
+import com.jaredloomis.analmark.scrape.SeleniumProductMarket
 import com.jaredloomis.analmark.scrape.createMarket
-import org.junit.jupiter.api.*
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import kotlin.random.Random
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class MarketTest {
+class ProductMarketTest {
   var marketCounter: Int = Random.nextInt(100)
   val maxBatchSize: Long = Random.nextLong(0, 20)
   val productDB = DummyProductDBModel()
@@ -64,8 +66,8 @@ class MarketTest {
     }
   }
 
-  private fun randomMarket(productDB: ProductDB): SeleniumMarket {
-    return createMarket(MarketType.EBAY, productDB) as SeleniumMarket
+  private fun randomMarket(productDB: ProductDB): SeleniumProductMarket {
+    return createMarket(ProductMarketType.EBAY, productDB) as SeleniumProductMarket
     /*
     val type = when(marketCounter++ % 4) {
       0    -> MarketType.CRAIGSLIST

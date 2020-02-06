@@ -3,8 +3,6 @@ package com.jaredloomis.analmark
 import com.jaredloomis.analmark.analysis.AWSComprehend
 import com.jaredloomis.analmark.db.PostgresPostingDBModel
 import com.jaredloomis.analmark.db.PostgresProductDBModel
-import com.jaredloomis.analmark.model.Brand
-import com.jaredloomis.analmark.model.Product
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 

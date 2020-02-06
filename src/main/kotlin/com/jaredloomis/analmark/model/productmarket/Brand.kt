@@ -1,4 +1,4 @@
-package com.jaredloomis.analmark.model
+package com.jaredloomis.analmark.model.productmarket
 
 class Brand(val name: String) {
   override fun toString(): String {

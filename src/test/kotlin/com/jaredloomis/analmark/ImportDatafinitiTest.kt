@@ -1,12 +1,12 @@
-package com.jaredloomis.analmark;
+package com.jaredloomis.analmark
 
 import com.jaredloomis.analmark.db.PostgresProductDBModel
-import com.jaredloomis.analmark.model.Brand
-import com.jaredloomis.analmark.model.Product
+import com.jaredloomis.analmark.model.productmarket.Brand
+import com.jaredloomis.analmark.model.productmarket.Product
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 
 import java.nio.file.Files
 import java.nio.file.Paths

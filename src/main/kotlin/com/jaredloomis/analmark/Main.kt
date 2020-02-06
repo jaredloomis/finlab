@@ -2,11 +2,11 @@ package com.jaredloomis.analmark
 
 import com.jaredloomis.analmark.db.PostgresProductDBModel
 import com.jaredloomis.analmark.model.CurrencyAmount
-import com.jaredloomis.analmark.model.EbayRawPosting
-import com.jaredloomis.analmark.model.RawPosting
+import com.jaredloomis.analmark.model.productmarket.EbayRawPosting
+import com.jaredloomis.analmark.model.productmarket.RawPosting
 import com.jaredloomis.analmark.scrape.Craigslist
 import com.jaredloomis.analmark.scrape.EBay
-import com.jaredloomis.analmark.scrape.SeleniumMarket
+import com.jaredloomis.analmark.scrape.SeleniumProductMarket
 import java.util.stream.Collectors
 
 fun main() {
@@ -16,9 +16,9 @@ fun main() {
 
   val productDB = PostgresProductDBModel()
 
-  val buyMarket: SeleniumMarket = EBay(productDB)
+  val buyMarket: SeleniumProductMarket = EBay(productDB)
   buyMarket.headless = false
-  val sellMarket: SeleniumMarket = Craigslist(productDB)
+  val sellMarket: SeleniumProductMarket = Craigslist(productDB)
   sellMarket.headless = false
 
   //productDB.addProduct(Product("wasabi", Brand("Costco")))

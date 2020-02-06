@@ -1,8 +1,7 @@
 package com.jaredloomis.analmark.legacy
 
-import com.jaredloomis.analmark.model.Brand
+import com.jaredloomis.analmark.model.productmarket.Brand
 import com.jaredloomis.analmark.nlp.tokens
-import kotlin.collections.HashSet
 
 interface BrandDB {
   fun addBrand(brand: Brand)

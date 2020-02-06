@@ -1,12 +1,11 @@
 package com.jaredloomis.analmark.nlp
 
 import com.jaredloomis.analmark.db.DBModel
-import com.jaredloomis.analmark.model.Brand
-import com.jaredloomis.analmark.model.Product
-import com.jaredloomis.analmark.model.ProductPosting
-import com.jaredloomis.analmark.model.RawPosting
+import com.jaredloomis.analmark.model.productmarket.Brand
+import com.jaredloomis.analmark.model.productmarket.Product
+import com.jaredloomis.analmark.model.productmarket.ProductPosting
+import com.jaredloomis.analmark.model.productmarket.RawPosting
 import com.jaredloomis.analmark.util.getLogger
-import java.lang.UnsupportedOperationException
 import java.util.stream.Stream
 
 /**
@@ -31,7 +30,7 @@ abstract class ProductRecognition {
       logger.info("Product Affinity: ${affinity(posting, product)}")
       if(product != null && affinity(posting, product) >= MIN_AFFINITY) {
         logger.info("Recognized product from query '$posting': $product")
-        ProductPosting(product, posting)
+          ProductPosting(product, posting)
       } else {
         null
       }

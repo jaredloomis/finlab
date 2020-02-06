@@ -1,4 +1,4 @@
-package com.jaredloomis.analmark.model
+package com.jaredloomis.analmark.model.productmarket
 
 class Product(var canonicalName: String, var primaryBrand: Brand) {
   var id: Long? = null

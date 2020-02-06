@@ -3,19 +3,17 @@ package com.jaredloomis.analmark
 import com.jaredloomis.analmark.db.DBModel
 import com.jaredloomis.analmark.db.PostgresPostingDBModel
 import com.jaredloomis.analmark.db.PostgresProductDBModel
-import com.jaredloomis.analmark.model.Product
-import com.jaredloomis.analmark.model.ProductPosting
-import com.jaredloomis.analmark.model.RawPosting
+import com.jaredloomis.analmark.model.productmarket.Product
+import com.jaredloomis.analmark.model.productmarket.ProductPosting
+import com.jaredloomis.analmark.model.productmarket.RawPosting
 import com.jaredloomis.analmark.nlp.DBCachingProductRecognition
-import com.jaredloomis.analmark.scrape.*
+import com.jaredloomis.analmark.scrape.Craigslist
 import com.jaredloomis.analmark.util.getLogger
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import java.util.*
 import java.util.stream.Collectors
-import kotlin.collections.ArrayList
 import kotlin.random.Random
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
