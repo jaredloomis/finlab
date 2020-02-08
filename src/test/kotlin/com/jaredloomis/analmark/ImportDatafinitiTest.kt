@@ -1,8 +1,8 @@
 package com.jaredloomis.analmark
 
 import com.jaredloomis.analmark.db.PostgresProductDBModel
-import com.jaredloomis.analmark.model.productmarket.Brand
-import com.jaredloomis.analmark.model.productmarket.Product
+import com.jaredloomis.analmark.model.product.Brand
+import com.jaredloomis.analmark.model.product.Product
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
 import org.junit.jupiter.api.Test
@@ -18,7 +18,7 @@ class ImportDatafinitiTest {
 
   @Test
   fun importData() {
-    val reader    = Files.newBufferedReader(dataFile)
+    val reader = Files.newBufferedReader(dataFile)
     val csvParser = CSVParser(reader, CSVFormat.EXCEL.withHeader())
 
     val products = csvParser.map { csvRecord ->
@@ -29,14 +29,14 @@ class ImportDatafinitiTest {
       val modelID = csvRecord.get("manufacturerNumber")
       val product = Product(-1, name, Brand("$brand,$manufacturer"))
       product.modelID = modelID
-      categories.split(",").forEach {product.tags.add(it)}
+      categories.split(",").forEach { product.tags.add(it) }
       product
     }
 
     products.forEach {
       try {
         productDB.insert(it)
-      } catch(ex: Exception) {
+      } catch (ex: Exception) {
         ex.printStackTrace()
       }
     }

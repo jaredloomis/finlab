@@ -3,11 +3,11 @@ package com.jaredloomis.analmark
 import com.jaredloomis.analmark.db.DBModel
 import com.jaredloomis.analmark.db.PostgresPostingDBModel
 import com.jaredloomis.analmark.db.PostgresProductDBModel
-import com.jaredloomis.analmark.model.productmarket.Product
-import com.jaredloomis.analmark.model.productmarket.ProductPosting
-import com.jaredloomis.analmark.model.productmarket.RawPosting
+import com.jaredloomis.analmark.model.product.Product
+import com.jaredloomis.analmark.model.product.ProductPosting
+import com.jaredloomis.analmark.model.product.RawPosting
 import com.jaredloomis.analmark.nlp.DBCachingProductRecognition
-import com.jaredloomis.analmark.scrape.Craigslist
+import com.jaredloomis.analmark.view.product.Craigslist
 import com.jaredloomis.analmark.util.getLogger
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -20,7 +20,7 @@ import kotlin.random.Random
 class FindMatchingPostingsTest {
   val productDB: DBModel<RawPosting, Product> = PostgresProductDBModel()
   val postingDB: DBModel<Product, ProductPosting> = PostgresPostingDBModel(productDB)
-  val market   = Craigslist(productDB)
+  val market = Craigslist(productDB)
   val recognition = DBCachingProductRecognition(productDB, postingDB)
 
   val productCount = 9999
@@ -48,8 +48,8 @@ class FindMatchingPostingsTest {
     val allProducts = productDB.all().collect(Collectors.toList())
     allProducts.shuffle()
     val productCount = 20
-    val maxIndex  = Math.max(0, allProducts.size - productCount)
-    val randIndex = if(maxIndex == 0) {
+    val maxIndex = Math.max(0, allProducts.size - productCount)
+    val randIndex = if (maxIndex == 0) {
       0
     } else {
       Random.nextInt(0, maxIndex)
@@ -58,7 +58,7 @@ class FindMatchingPostingsTest {
 
     logger.info("[FindMatchingPosts] matching ${products.size} products from database to postings from ${market.type}")
 
-    val foundProdPosts = products.flatMap {product ->
+    val foundProdPosts = products.flatMap { product ->
       val posts = ArrayList<RawPosting>()
       market.search("${product.primaryBrand.name} ${product.modelID ?: product.canonicalName}")
       repeat(batchCount) {
@@ -67,8 +67,8 @@ class FindMatchingPostingsTest {
       }
 
       posts
-        .filter {recognition.recognize(it, productDB.find(it)) != null}
-        .map {postingDB.insert(ProductPosting(product, it))}
+        .filter { recognition.recognize(it, productDB.find(it)) != null }
+        .map { postingDB.insert(ProductPosting(product, it)) }
     }
 
     logger.info("[FindMatchingPosts] found $foundProdPosts")

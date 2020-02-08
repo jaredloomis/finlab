@@ -1,6 +1,6 @@
 package com.jaredloomis.analmark.legacy
 
-import com.jaredloomis.analmark.model.productmarket.Brand
+import com.jaredloomis.analmark.model.product.Brand
 import com.jaredloomis.analmark.nlp.tokens
 
 interface BrandDB {
@@ -8,7 +8,7 @@ interface BrandDB {
   fun findMatches(brandStr: String): List<Brand>
 }
 
-class DummyBrandDB: BrandDB {
+class DummyBrandDB : BrandDB {
   val brands = HashSet<Brand>()
 
   override fun addBrand(brand: Brand) {
@@ -21,21 +21,21 @@ class DummyBrandDB: BrandDB {
     var maxScore = 0
     var bestMatch: Brand? = null
 
-    for(brand in brands) {
+    for (brand in brands) {
       val productTokens = tokens(brand.name)
       // Score = number of tokens which are common across both search product and search
       val score = productTokens.filter {
         searchTokens.contains(it)
       }.size
 
-      if(score > maxScore) {
-        maxScore  = score
+      if (score > maxScore) {
+        maxScore = score
         bestMatch = brand
       }
     }
 
     val ret = ArrayList<Brand>()
-    if(bestMatch != null) {
+    if (bestMatch != null) {
       ret.add(bestMatch)
     }
     return ret

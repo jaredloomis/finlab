@@ -2,10 +2,10 @@ package com.jaredloomis.analmark
 
 import com.jaredloomis.analmark.db.DummyProductDBModel
 import com.jaredloomis.analmark.legacy.ProductDB
-import com.jaredloomis.analmark.model.productmarket.RawPosting
-import com.jaredloomis.analmark.scrape.ProductMarketType
-import com.jaredloomis.analmark.scrape.SeleniumProductMarket
-import com.jaredloomis.analmark.scrape.createMarket
+import com.jaredloomis.analmark.model.product.RawPosting
+import com.jaredloomis.analmark.view.product.ProductMarketType
+import com.jaredloomis.analmark.view.product.SeleniumProductMarket
+import com.jaredloomis.analmark.view.product.createMarket
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -19,7 +19,7 @@ class ProductMarketTest {
   val productDB = DummyProductDBModel()
   val market1 = randomMarket(productDB)
   val market2 = randomMarket(productDB)
-  
+
   @BeforeEach
   fun setup() {
     market1.init()
@@ -28,7 +28,7 @@ class ProductMarketTest {
     market2.init()
     market2.headless = false
   }
-  
+
   @AfterEach
   fun teardown() {
     market1.quit()
@@ -43,26 +43,26 @@ class ProductMarketTest {
 
     market1.navigateToRandomProductList()
     repeat(batchCount) {
-      val batch = market1.fetchProductBatch(maxSize=maxBatchSize)
+      val batch = market1.fetchProductBatch(maxSize = maxBatchSize)
       val batchSize = batch.size.toLong()
-      assert(batchSize <= maxBatchSize) {"Batch size should be <= $maxBatchSize. $batchSize. Batch no.$it"}
-      if(batchSize < 0) {
+      assert(batchSize <= maxBatchSize) { "Batch size should be <= $maxBatchSize. $batchSize. Batch no.$it" }
+      if (batchSize < 0) {
         ++failCount
       }
       posts.addAll(batch)
     }
-    assert(failCount < batchCount / 4) {"Market successfully fetches a product batch >3/4 of the time $failCount / $batchCount"}
+    assert(failCount < batchCount / 4) { "Market successfully fetches a product batch >3/4 of the time $failCount / $batchCount" }
 
     val postsSet = HashSet<RawPosting>()
     // Assert posts are not duplicated
-    posts.forEach {post ->
-      assert(!postsSet.contains(post)) {"posts should be unique. ${market1.type} $post $postsSet"}
+    posts.forEach { post ->
+      assert(!postsSet.contains(post)) { "posts should be unique. ${market1.type} $post $postsSet" }
       postsSet.add(post)
     }
     // Assert post titles are not empty, and have valid price
-    posts.forEach {post ->
-      assert(post.title.isNotEmpty()) {"post titles should not be empty"}
-      assert(post.price.pennies > 0) {"post prices should not be negative"}
+    posts.forEach { post ->
+      assert(post.title.isNotEmpty()) { "post titles should not be empty" }
+      assert(post.price.pennies > 0) { "post prices should not be negative" }
     }
   }
 

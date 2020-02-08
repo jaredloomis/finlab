@@ -9,14 +9,14 @@ class CurrencyAmount {
   val currency: Currency
 
   constructor(pennies: Long) {
-    this.pennies  = pennies
+    this.pennies = pennies
     this.currency = Currency.getInstance("USD")
   }
 
   constructor(str: String) {
     val pricePattern: Pattern = Pattern.compile("[^\\d]*([\\d,]+(\\.\\d)?)")
     val m: Matcher = pricePattern.matcher(str)
-    if(m.find()) {
+    if (m.find()) {
       val dollars = m.group(1).replace(",", "")
       this.pennies = (dollars.toDouble() * 100).toLong()
       // TODO correctly interpret currency

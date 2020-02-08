@@ -2,11 +2,11 @@ package com.jaredloomis.analmark
 
 import com.jaredloomis.analmark.db.PostgresProductDBModel
 import com.jaredloomis.analmark.model.CurrencyAmount
-import com.jaredloomis.analmark.model.productmarket.EbayRawPosting
-import com.jaredloomis.analmark.model.productmarket.RawPosting
-import com.jaredloomis.analmark.scrape.Craigslist
-import com.jaredloomis.analmark.scrape.EBay
-import com.jaredloomis.analmark.scrape.SeleniumProductMarket
+import com.jaredloomis.analmark.model.product.EbayRawPosting
+import com.jaredloomis.analmark.model.product.RawPosting
+import com.jaredloomis.analmark.view.product.Craigslist
+import com.jaredloomis.analmark.view.product.EBay
+import com.jaredloomis.analmark.view.product.SeleniumProductMarket
 import java.util.stream.Collectors
 
 fun main() {

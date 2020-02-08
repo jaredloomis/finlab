@@ -1,12 +1,12 @@
 package com.jaredloomis.analmark.db
 
 import com.jaredloomis.analmark.model.CurrencyAmount
-import com.jaredloomis.analmark.model.productmarket.Brand
-import com.jaredloomis.analmark.model.productmarket.Product
-import com.jaredloomis.analmark.model.productmarket.ProductPosting
-import com.jaredloomis.analmark.model.productmarket.RawPosting
+import com.jaredloomis.analmark.model.product.Brand
+import com.jaredloomis.analmark.model.product.Product
+import com.jaredloomis.analmark.model.product.ProductPosting
+import com.jaredloomis.analmark.model.product.RawPosting
 import com.jaredloomis.analmark.nlp.wordsInCommon
-import com.jaredloomis.analmark.scrape.ProductMarketType
+import com.jaredloomis.analmark.view.product.ProductMarketType
 import com.jaredloomis.analmark.util.getLogger
 import org.postgresql.util.PSQLException
 import java.sql.*
@@ -65,7 +65,7 @@ abstract class SQLTemplate<T>(val model: T, val template: String) {
 */
 
 private fun matcherString(input: String): String {
-  if(input.isEmpty()) return input
+  if (input.isEmpty()) return input
   return "%" + input
     .replace("!", "!!")
     .replace("%", "!%")
@@ -74,8 +74,8 @@ private fun matcherString(input: String): String {
 }
 
 private fun parseProduct(rs: ResultSet): Product {
-  val id           = rs.getLong("id")
-  val productName  = rs.getString("product_name")
+  val id = rs.getLong("id")
+  val productName = rs.getString("product_name")
   val productBrand = rs.getString("brand")
   return Product(id, productName, Brand(productBrand))
 }
@@ -89,12 +89,12 @@ class DummyProductDBModel : DBModel<RawPosting, Product>() {
 
   override fun find(query: RawPosting): Stream<Product> {
     return products.stream()
-      .filter {product -> wordsInCommon(product.canonicalName, query.title).size > 1}
+      .filter { product -> wordsInCommon(product.canonicalName, query.title).size > 1 }
   }
 
   override fun findByText(text: String): Product? {
     return products.stream()
-      .filter {product -> product.canonicalName == text}
+      .filter { product -> product.canonicalName == text }
       .findAny()
       .orElse(null)
   }
@@ -110,18 +110,18 @@ class DummyProductDBModel : DBModel<RawPosting, Product>() {
 }
 
 class PostgresPostingDBModel(
-        val productDBModel: DBModel<RawPosting, Product>,
-        val tableName: String="public.postings", val productTableName: String="public.products"
-  ) : DBModel<Product, ProductPosting>() {
-  private val ID_COLUMN_NAME          = "id"
-  private val MARKET_COLUMN_NAME      = "market"
-  private val URL_COLUMN_NAME         = "url"
-  private val PRODUCT_COLUMN_NAME     = "product"
-  private val TITLE_COLUMN_NAME       = "title"
-  private val PRICE_COLUMN_NAME       = "price"
+  val productDBModel: DBModel<RawPosting, Product>,
+  val tableName: String = "public.postings", val productTableName: String = "public.products"
+) : DBModel<Product, ProductPosting>() {
+  private val ID_COLUMN_NAME = "id"
+  private val MARKET_COLUMN_NAME = "market"
+  private val URL_COLUMN_NAME = "url"
+  private val PRODUCT_COLUMN_NAME = "product"
+  private val TITLE_COLUMN_NAME = "title"
+  private val PRICE_COLUMN_NAME = "price"
   private val DESCRIPTION_COLUMN_NAME = "description"
-  private val SPECS_COLUMN_NAME       = "specs"
-  private val SEEN_COLUMN_NAME        = "seenAt"
+  private val SPECS_COLUMN_NAME = "specs"
+  private val SEEN_COLUMN_NAME = "seenAt"
 
   private val logger = getLogger(this::class)
 
@@ -132,7 +132,7 @@ class PostgresPostingDBModel(
   override fun insert(entity: ProductPosting): ProductPosting {
     // Check if product already exists
     val found = findByText(entity.posting.title)
-    if(found != null) {
+    if (found != null) {
       val ret = found.merge(entity)
 
       logger.info("PostgresProductDBModel.insert: merging products into $ret")
@@ -145,7 +145,7 @@ class PostgresPostingDBModel(
       val con = connect()
       val stmt = con.prepareStatement(insertSQL, Statement.RETURN_GENERATED_KEYS)
       stmt.setString(1, ret.posting.url)
-      if(ret.product.id != null) {
+      if (ret.product.id != null) {
         stmt.setLong(2, ret.product.id!!)
       } else {
         stmt.setNull(2, Types.BIGINT)
@@ -154,8 +154,8 @@ class PostgresPostingDBModel(
       stmt.setLong(4, ret.posting.price.pennies)
       stmt.setString(5, ret.posting.description)
       stmt.setString(6, ret.posting.specs
-        .map {entry -> "${entry.key}=${entry.value}"}
-        .fold(StringBuilder()) {acc, entryStr -> acc.append(entryStr).append(",")}
+        .map { entry -> "${entry.key}=${entry.value}" }
+        .fold(StringBuilder()) { acc, entryStr -> acc.append(entryStr).append(",") }
         .toString()
       )
       stmt.setDate(7, Date(ret.posting.seen.toEpochMilli()))
@@ -173,7 +173,7 @@ class PostgresPostingDBModel(
     val stmt = con.prepareStatement(insertSQL, Statement.RETURN_GENERATED_KEYS)
     stmt.setString(1, entity.posting.market.name)
     stmt.setString(2, entity.posting.url)
-    if(entity.product.id != null)
+    if (entity.product.id != null)
       stmt.setLong(3, entity.product.id!!)
     else
       stmt.setNull(3, Types.BIGINT)
@@ -181,19 +181,19 @@ class PostgresPostingDBModel(
     stmt.setLong(5, entity.posting.price.pennies)
     stmt.setString(6, entity.posting.description)
     stmt.setString(7, entity.posting.specs.entries
-      .map {entry -> "${entry.key}=${entry.value}"}
-      .fold(StringBuilder()) {acc, entryStr -> acc.append(entryStr).append(",")}
+      .map { entry -> "${entry.key}=${entry.value}" }
+      .fold(StringBuilder()) { acc, entryStr -> acc.append(entryStr).append(",") }
       .toString()
     )
     stmt.setDate(8, Date(entity.posting.seen.toEpochMilli()))
     var id: Long? = null
     try {
       stmt.executeUpdate()
-      if(stmt.generatedKeys.next()) {
+      if (stmt.generatedKeys.next()) {
         id = stmt.generatedKeys.getLong(1)
       }
-    } catch(ex: PSQLException) {
-      if(ex.message?.contains("duplicate key value violates unique constraint") == true) {
+    } catch (ex: PSQLException) {
+      if (ex.message?.contains("duplicate key value violates unique constraint") == true) {
         logger.info("Ignoring duplicate name error. Throwing away entry $entity")
       } else {
         throw ex
@@ -212,10 +212,10 @@ class PostgresPostingDBModel(
     val matches = ArrayList<ProductPosting>()
     val querySQL = "SELECT * FROM $tableName WHERE $ID_COLUMN_NAME=${id}"
 
-    val con     = connect()
-    val stmt    = con.createStatement()
+    val con = connect()
+    val stmt = con.createStatement()
     val results = stmt.executeQuery(querySQL)
-    if(results.next()) {
+    if (results.next()) {
       return parseProductPosting(results)
     }
     results.close()
@@ -241,9 +241,9 @@ class PostgresPostingDBModel(
         to_tsvector(LOWER(brand)) @@ to_tsquery(LOWER(?))
     """.trimIndent()
 
-    val con     = connect()
-    val stmt    = con.prepareStatement(querySQL)
-    if(query.id != null)
+    val con = connect()
+    val stmt = con.prepareStatement(querySQL)
+    if (query.id != null)
       stmt.setLong(1, query.id!!)
     else
       stmt.setNull(1, Types.BIGINT)
@@ -254,9 +254,9 @@ class PostgresPostingDBModel(
     stmt.setString(6, matcherString(query.canonicalName))
     stmt.setString(7, matcherString(query.primaryBrand.name))
     val results = stmt.executeQuery()
-    while(results.next()) {
+    while (results.next()) {
       val post = parseProductPosting(results)
-      if(post != null) {
+      if (post != null) {
         matches.add(post)
       } else {
         System.err.println("Failed to parse product posting from postings table.")
@@ -273,11 +273,11 @@ class PostgresPostingDBModel(
     var ret: ProductPosting? = null
     val querySQL = "SELECT * FROM $tableName WHERE title ILIKE ?"
 
-    val con     = connect()
-    val stmt    = con.prepareStatement(querySQL)
+    val con = connect()
+    val stmt = con.prepareStatement(querySQL)
     stmt.setString(1, matcherString(text))
     val results = stmt.executeQuery()
-    if(results.next()) {
+    if (results.next()) {
       ret = parseProductPosting(results)
     }
     results.close()
@@ -291,12 +291,12 @@ class PostgresPostingDBModel(
     val matches = ArrayList<ProductPosting>()
     val querySQL = "SELECT * FROM $tableName"
 
-    val con     = connect()
-    val stmt    = con.createStatement()
+    val con = connect()
+    val stmt = con.createStatement()
     val results = stmt.executeQuery(querySQL)
-    while(results.next()) {
+    while (results.next()) {
       val post = parseProductPosting(results)
-      if(post != null) {
+      if (post != null) {
         matches.add(post)
       }
     }
@@ -308,31 +308,31 @@ class PostgresPostingDBModel(
   }
 
   private fun parseProductPosting(results: ResultSet): ProductPosting? {
-    val id          = results.getLong(ID_COLUMN_NAME)
-    val marketStr   = results.getString(MARKET_COLUMN_NAME)
-    val url         = results.getString(URL_COLUMN_NAME)
-    val productID   = results.getLong(PRODUCT_COLUMN_NAME)
-    val title       = results.getString(TITLE_COLUMN_NAME)
-    val priceCents  = results.getLong(PRICE_COLUMN_NAME)
+    val id = results.getLong(ID_COLUMN_NAME)
+    val marketStr = results.getString(MARKET_COLUMN_NAME)
+    val url = results.getString(URL_COLUMN_NAME)
+    val productID = results.getLong(PRODUCT_COLUMN_NAME)
+    val title = results.getString(TITLE_COLUMN_NAME)
+    val priceCents = results.getLong(PRICE_COLUMN_NAME)
     val description = results.getString(DESCRIPTION_COLUMN_NAME)
-    val specsStr    = results.getString(SPECS_COLUMN_NAME)
-    val seenAt      = results.getDate(SEEN_COLUMN_NAME)
-    val market      = ProductMarketType.valueOf(marketStr)
-    val price       = CurrencyAmount(priceCents)
-    val specs       = specsStr.split(",")
-      .mapNotNull {specStr ->
+    val specsStr = results.getString(SPECS_COLUMN_NAME)
+    val seenAt = results.getDate(SEEN_COLUMN_NAME)
+    val market = ProductMarketType.valueOf(marketStr)
+    val price = CurrencyAmount(priceCents)
+    val specs = specsStr.split(",")
+      .mapNotNull { specStr ->
         val splitSpec = specStr.split("=")
-        if(splitSpec.isEmpty()) {
+        if (splitSpec.isEmpty()) {
           null
         } else {
-          Pair(splitSpec[0], if(splitSpec.size >= 2) splitSpec[1] else "")
+          Pair(splitSpec[0], if (splitSpec.size >= 2) splitSpec[1] else "")
         }
       }
-      .fold(HashMap<String, String>() as Map<String, String>, {acc, spec -> acc.plus(spec)})
-    val rawPost     = RawPosting(market, url, title, description, price, specs)
-    val product     = productDBModel.findByID(productID)
-    return if(product != null) {
-        ProductPosting(id, product, rawPost)
+      .fold(HashMap<String, String>() as Map<String, String>, { acc, spec -> acc.plus(spec) })
+    val rawPost = RawPosting(market, url, title, description, price, specs)
+    val product = productDBModel.findByID(productID)
+    return if (product != null) {
+      ProductPosting(id, product, rawPost)
     } else {
       null
     }
@@ -354,7 +354,7 @@ class PostgresPostingDBModel(
         UNIQUE ($TITLE_COLUMN_NAME, $SEEN_COLUMN_NAME, $MARKET_COLUMN_NAME)
       );
       """.trimIndent()
-    val con  = connect()
+    val con = connect()
     val stmt = con.createStatement()
     stmt.execute(postingsSQL)
     stmt.close()
@@ -383,9 +383,9 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
 
   override fun insert(entity: Product): Product {
     logger.info("inserting product: $entity")
-      // Check if product already exists
+    // Check if product already exists
     val found = findByText(entity.canonicalName)
-    if(found != null) {
+    if (found != null) {
       val ret = found.merge(entity)
 
       logger.info("PostgresProductDBModel.insert: merging products into $ret")
@@ -401,15 +401,15 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
       stmt.setString(2, ret.primaryBrand.name)
       stmt.setString(3, ret.modelID)
       stmt.setString(4, ret.upc)
-      if(ret.category != null)
+      if (ret.category != null)
         stmt.setString(5, ret.category)
       else
         stmt.setNull(5, Types.VARCHAR)
       stmt.setLong(6, ret.id!!)
       try {
-      stmt.executeUpdate()
-      } catch(ex: PSQLException) {
-        if(ex.message?.contains("duplicate key value violates unique constraint") == true) {
+        stmt.executeUpdate()
+      } catch (ex: PSQLException) {
+        if (ex.message?.contains("duplicate key value violates unique constraint") == true) {
           logger.info("Ignoring duplicate name error. Throwing away entry $entity")
         } else {
           throw ex
@@ -428,17 +428,17 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
     stmt.setString(2, entity.primaryBrand.name)
     stmt.setString(3, entity.modelID)
     stmt.setString(4, entity.upc)
-    if(entity.category != null)
+    if (entity.category != null)
       stmt.setString(5, entity.category)
     else
       stmt.setNull(5, Types.VARCHAR)
     try {
       stmt.executeUpdate()
-      if(stmt.generatedKeys.next()) {
+      if (stmt.generatedKeys.next()) {
         entity.id = stmt.generatedKeys.getLong(1)
       }
-    } catch(ex: PSQLException) {
-      if(ex.message?.contains("duplicate key value violates unique constraint") == true) {
+    } catch (ex: PSQLException) {
+      if (ex.message?.contains("duplicate key value violates unique constraint") == true) {
         logger.info("Ignoring duplicate name error. Throwing away entry $entity")
       } else {
         throw ex
@@ -455,10 +455,10 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
     var ret: Product? = null
     val querySQL = "SELECT * FROM $productTableName WHERE id=${id}"
 
-    val con     = connect()
-    val stmt    = con.createStatement()
+    val con = connect()
+    val stmt = con.createStatement()
     val results = stmt.executeQuery(querySQL)
-    if(results.next()) {
+    if (results.next()) {
       ret = parseProduct(results)
     }
     results.close()
@@ -471,11 +471,11 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
     var ret: Product? = null
     val querySQL = "SELECT * FROM $productTableName WHERE product_name ILIKE ?"
 
-    val con     = connect()
-    val stmt    = con.prepareStatement(querySQL)
+    val con = connect()
+    val stmt = con.prepareStatement(querySQL)
     stmt.setString(1, matcherString(text))
     val results = stmt.executeQuery()
-    if(results.next()) {
+    if (results.next()) {
       ret = parseProduct(results)
     }
     results.close()
@@ -492,21 +492,21 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
       WHERE product_name ILIKE ? OR brand ILIKE ? OR ? ILIKE product_name OR category ILIKE ?
     """
 
-    val con     = connect()
-    val stmt    = con.prepareStatement(querySQL)
+    val con = connect()
+    val stmt = con.prepareStatement(querySQL)
     stmt.setString(1, matcherString(query.title))
-    if(query.brand != null) {
+    if (query.brand != null) {
       stmt.setString(2, matcherString(query.brand!!))
     } else {
       stmt.setNull(2, Types.VARCHAR)
     }
     stmt.setString(3, matcherString(query.description))
-    if(query.category != null)
+    if (query.category != null)
       stmt.setString(4, query.category)
     else
       stmt.setNull(4, Types.VARCHAR)
     val results = stmt.executeQuery()
-    while(results.next()) {
+    while (results.next()) {
       matches.add(parseProduct(results))
     }
     results.close()
@@ -521,10 +521,10 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
     val matches = ArrayList<Product>()
     val querySQL = "SELECT * FROM $productTableName"
 
-    val con     = connect()
-    val stmt    = con.createStatement()
+    val con = connect()
+    val stmt = con.createStatement()
     val results = stmt.executeQuery(querySQL)
-    while(results.next()) {
+    while (results.next()) {
       matches.add(parseProduct(results))
     }
     results.close()
@@ -547,8 +547,8 @@ class PostgresProductDBModel() : DBModel<RawPosting, Product>() {
         tags         TEXT
       );
       """.trimIndent()
-    val con     = connect()
-    val stmt1   = con.createStatement()
+    val con = connect()
+    val stmt1 = con.createStatement()
     stmt1.execute(productsSQL)
     stmt1.close()
     con.close()

@@ -3,9 +3,9 @@ package com.jaredloomis.analmark
 import com.jaredloomis.analmark.legacy.DummyBrandDB
 import com.jaredloomis.analmark.legacy.PostgresProductDB
 import com.jaredloomis.analmark.model.CurrencyAmount
-import com.jaredloomis.analmark.model.productmarket.Brand
-import com.jaredloomis.analmark.model.productmarket.EbayRawPosting
-import com.jaredloomis.analmark.model.productmarket.Product
+import com.jaredloomis.analmark.model.product.Brand
+import com.jaredloomis.analmark.model.product.EbayRawPosting
+import com.jaredloomis.analmark.model.product.Product
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import java.util.stream.Collectors

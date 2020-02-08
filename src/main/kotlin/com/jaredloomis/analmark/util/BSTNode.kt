@@ -2,11 +2,11 @@ package com.jaredloomis.analmark.util
 
 import java.util.stream.Stream
 
-class BinarySearchTree<K: Comparable<K>, V> {
+class BinarySearchTree<K : Comparable<K>, V> {
   var root: BSTNode<K, V>? = null
 
   fun put(key: K, value: V) {
-    if(root == null) {
+    if (root == null) {
       root = BSTNode(key, value, null, null)
     }
 
@@ -22,13 +22,13 @@ class BinarySearchTree<K: Comparable<K>, V> {
   }
 }
 
-class BSTNode<K: Comparable<K>, V>(val key: K?, var value: V?, var left: BSTNode<K, V>?, var right: BSTNode<K, V>?) {
-  constructor(): this(null, null, null, null) {}
+class BSTNode<K : Comparable<K>, V>(val key: K?, var value: V?, var left: BSTNode<K, V>?, var right: BSTNode<K, V>?) {
+  constructor() : this(null, null, null, null) {}
 
   fun put(key: K, value: V): BSTNode<K, V> {
-    return if(key == this.key) {
+    return if (key == this.key) {
       BSTNode(key, value, left, right)
-    } else if(this.key != null && key <= this.key) {
+    } else if (this.key != null && key <= this.key) {
       BSTNode(this.key, this.value,
         left?.put(key, value) ?: BSTNode(key, value, null, null),
         right
@@ -42,7 +42,7 @@ class BSTNode<K: Comparable<K>, V>(val key: K?, var value: V?, var left: BSTNode
   }
 
   fun search(searchKey: K): V? {
-    return matches {key, _ -> key == searchKey}.findFirst().orElse(null)?.value
+    return matches { key, _ -> key == searchKey }.findFirst().orElse(null)?.value
     //return searchNode(searchKey)?.value
   }
 
@@ -50,7 +50,7 @@ class BSTNode<K: Comparable<K>, V>(val key: K?, var value: V?, var left: BSTNode
    * Travel least to greatest
    */
   fun ordered(): Stream<BSTNode<K, V>> {
-    return matches {_, _ -> true}
+    return matches { _, _ -> true }
     /*
     val ret = LinkedList<Pair<K, V>>()
     // Add values to left
@@ -72,24 +72,24 @@ class BSTNode<K: Comparable<K>, V>(val key: K?, var value: V?, var left: BSTNode
     return Stream.concat(
       Stream.concat(
         left?.matches(f) ?: Stream.empty(),
-        if(key != null && value != null && f(key, value!!)) Stream.of(this) else Stream.empty()
+        if (key != null && value != null && f(key, value!!)) Stream.of(this) else Stream.empty()
       ),
       right?.matches(f) ?: Stream.empty()
     )
   }
 
   fun map(f: (key: K, value: V) -> V): BSTNode<K, V> {
-    val leftp    = left?.map(f)
-    val newValue = if(key != null && value != null) f(key, value!!) else value
-    val rightp   = right?.map(f)
+    val leftp = left?.map(f)
+    val newValue = if (key != null && value != null) f(key, value!!) else value
+    val rightp = right?.map(f)
     return BSTNode(key, newValue, leftp, rightp)
   }
 
   private fun searchNode(searchKey: K): BSTNode<K, V>? {
     return when {
-      searchKey == this.key                     -> this
+      searchKey == this.key -> this
       this.key != null && searchKey <= this.key -> left?.searchNode(searchKey)
-      else                                      -> right?.searchNode(searchKey)
+      else -> right?.searchNode(searchKey)
     }
   }
 }

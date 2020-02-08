@@ -14,22 +14,22 @@ class ParsingString(val str: String) {
 
   private val _words: Lazy<List<String>> = lazy {
     str.split(" ", "\n", "\t")
-      .filter {token -> token.isNotEmpty() && token.any {!it.isWhitespace()}}
+      .filter { token -> token.isNotEmpty() && token.any { !it.isWhitespace() } }
   }
 
   private val _stemmed: Lazy<List<String>> = lazy {
-    _words.value.map {stemmer.stem(it)}
+    _words.value.map { stemmer.stem(it) }
   }
 
   private val _withoutStopTokens: Lazy<List<String>> = lazy {
     val stopTokens = Files.readAllLines(Paths.get("data", "stoptokens.txt")).toSet()
-    _words.value.filter {stopTokens.contains(it)}
+    _words.value.filter { stopTokens.contains(it) }
   }
 
   fun containsIgnoreCase(str: String): Boolean {
     val lowStr = str.toLowerCase()
-    for(i in this.words.indices) {
-      if(this.words[i].toLowerCase() == lowStr) {
+    for (i in this.words.indices) {
+      if (this.words[i].toLowerCase() == lowStr) {
         return true
       }
     }
@@ -45,21 +45,21 @@ fun wordsInCommon(reference: String, test: String): List<String> {
 
 fun wordsInCommon(reference: List<String>, test: List<String>): List<String> {
   return test
-    .filter {token ->
+    .filter { token ->
       val lcTok = token.toLowerCase()
-      reference.any {it.toLowerCase() == lcTok}
+      reference.any { it.toLowerCase() == lcTok }
     }
 }
 
 fun tokens(title: String): List<String> {
   return title.split(" ")
-    .filter {token -> token.isNotEmpty()}
+    .filter { token -> token.isNotEmpty() }
 }
 
-fun removeSubstring(subStr: String, str: String, caseSensitive: Boolean=true): String {
+fun removeSubstring(subStr: String, str: String, caseSensitive: Boolean = true): String {
   var ret: String = str
   var startIndex = indexOfPrime(subStr, str, caseSensitive)
-  while(startIndex != -1 && subStr.isNotEmpty()) {
+  while (startIndex != -1 && subStr.isNotEmpty()) {
     ret = ret.removeRange(startIndex, startIndex + subStr.length)
     startIndex = ret.indexOf(subStr)
   }
@@ -68,8 +68,8 @@ fun removeSubstring(subStr: String, str: String, caseSensitive: Boolean=true): S
 
 fun List<String>.containsIgnoreCase(str: String): Boolean {
   val lowStr = str.toLowerCase()
-  for(i in this.indices) {
-    if(this[i].toLowerCase() == lowStr) {
+  for (i in this.indices) {
+    if (this[i].toLowerCase() == lowStr) {
       return true
     }
   }
@@ -84,12 +84,13 @@ fun stem(str: String): String {
 val stopTokens = lazy {
   Files.readAllLines(Paths.get("data", "stoptokens.txt"))
     .toSet()
-    .map {it.toLowerCase()}
+    .map { it.toLowerCase() }
 }
-fun removeStopTokens(tokens: List<String>, caseSensitive: Boolean=false): List<String> {
+
+fun removeStopTokens(tokens: List<String>, caseSensitive: Boolean = false): List<String> {
   return tokens.filter {
     !stopTokens.value.contains(
-      if(caseSensitive) it else it.toLowerCase()
+      if (caseSensitive) it else it.toLowerCase()
     )
   }
 }
@@ -100,28 +101,28 @@ fun parseTechnicalModelIDs(str: String): String? {
   return match?.value
 }
 
-private fun indexOfPrime(subStr: String, str: String, caseSensitive: Boolean=true): Int {
-  if(caseSensitive) {
+private fun indexOfPrime(subStr: String, str: String, caseSensitive: Boolean = true): Int {
+  if (caseSensitive) {
     return str.indexOf(subStr)
-  } else if(subStr.isEmpty()) {
+  } else if (subStr.isEmpty()) {
     return -1
   }
 
   val startChar = subStr[0].toLowerCase()
   var stringStartIndex: Int? = null
   var subStrIndex: Int? = null
-  for(i in str.indices) {
+  for (i in str.indices) {
     val c = str[i]
     // Continue checking the rest of the characters, and return start index if all match
-    if(subStrIndex != null) {
+    if (subStrIndex != null) {
       subStrIndex = when {
-        subStrIndex > subStr.length-1                        -> return stringStartIndex!!
+        subStrIndex > subStr.length - 1 -> return stringStartIndex!!
         c.toLowerCase() != subStr[subStrIndex].toLowerCase() -> null
-        else                                                 -> subStrIndex + 1
+        else -> subStrIndex + 1
       }
     }
     // When we see the first char of subStr, set tracking variables
-    else if(c.toLowerCase() == startChar) {
+    else if (c.toLowerCase() == startChar) {
       subStrIndex = 1
       stringStartIndex = i
     }

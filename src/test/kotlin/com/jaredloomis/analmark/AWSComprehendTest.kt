@@ -1,6 +1,6 @@
 package com.jaredloomis.analmark
 
-import com.jaredloomis.analmark.analysis.AWSComprehend
+import com.jaredloomis.analmark.model.AWSComprehend
 import com.jaredloomis.analmark.db.PostgresPostingDBModel
 import com.jaredloomis.analmark.db.PostgresProductDBModel
 import org.junit.jupiter.api.Test

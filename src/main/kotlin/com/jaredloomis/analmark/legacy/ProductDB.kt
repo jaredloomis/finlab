@@ -1,9 +1,9 @@
 package com.jaredloomis.analmark.legacy
 
 import com.jaredloomis.analmark.db.DBModel
-import com.jaredloomis.analmark.model.productmarket.Brand
-import com.jaredloomis.analmark.model.productmarket.Product
-import com.jaredloomis.analmark.model.productmarket.RawPosting
+import com.jaredloomis.analmark.model.product.Brand
+import com.jaredloomis.analmark.model.product.Product
+import com.jaredloomis.analmark.model.product.RawPosting
 import com.jaredloomis.analmark.nlp.containsIgnoreCase
 import com.jaredloomis.analmark.nlp.stem
 import com.jaredloomis.analmark.nlp.tokens
@@ -29,27 +29,27 @@ class DummyProductDB(val brandDB: BrandDB) : ProductDB1 {
 
   // TODO return matches in order, instead of just best match
   override fun findMatches(post: RawPosting): Stream<Product> {
-    val searchTokens = tokens(post.title).map {stem(it)}
+    val searchTokens = tokens(post.title).map { stem(it) }
     var maxScore = 0
     var bestMatch: Product? = null
 
-    for(product in products.filter {post.brand == null || it.primaryBrand.name == post.brand}) {
+    for (product in products.filter { post.brand == null || it.primaryBrand.name == post.brand }) {
       val productTokens = tokens(product.primaryBrand.name + " " + product.canonicalName)
-        .map {stem(it)}
+        .map { stem(it) }
       // Score = number of tokens which are common across both search product and search
       val score = productTokens.filter {
         searchTokens.containsIgnoreCase(it)
       }.size
 
       System.out.println(productTokens + "   " + searchTokens + "   " + score)
-      if(score > maxScore) {
-        maxScore  = score
+      if (score > maxScore) {
+        maxScore = score
         bestMatch = product
       }
     }
 
     val ret = ArrayList<Product>()
-    if(bestMatch != null) {
+    if (bestMatch != null) {
       ret.add(bestMatch)
     }
     return ret.stream()
@@ -88,7 +88,7 @@ class PostgresProductDB(val brandDB: BrandDB) : ProductDB1 {
       stmt.execute(insertSQL)
       con.close()
       stmt.close()
-    } catch(ex: PSQLException) {
+    } catch (ex: PSQLException) {
       println(
         "[PostgresProductDB] Following exception is likely due to a duplicate product in PostgresProductDB.insert. Ignoring."
       )
@@ -101,10 +101,10 @@ class PostgresProductDB(val brandDB: BrandDB) : ProductDB1 {
     val matches = ArrayList<Product>()
     val querySQL = "SELECT * FROM $productTableName WHERE brand ILIKE '${post.title}'"
 
-    val con     = connect()
-    val stmt    = con.createStatement()
+    val con = connect()
+    val stmt = con.createStatement()
     val results = stmt.executeQuery(querySQL)
-    while(results.next()) {
+    while (results.next()) {
       val id = results.getLong("id")
       val productName = results.getString("product_name")
       val productBrand = results.getString("brand")
@@ -122,10 +122,10 @@ class PostgresProductDB(val brandDB: BrandDB) : ProductDB1 {
     val matches = ArrayList<Product>()
     val querySQL = "SELECT * FROM $productTableName"
 
-    val con     = connect()
-    val stmt    = con.createStatement()
+    val con = connect()
+    val stmt = con.createStatement()
     val results = stmt.executeQuery(querySQL)
-    while(results.next()) {
+    while (results.next()) {
       val id = results.getLong("id")
       val productName = results.getString("product_name")
       val productBrand = results.getString("brand")
@@ -149,10 +149,10 @@ class PostgresProductDB(val brandDB: BrandDB) : ProductDB1 {
       "market SMALLINT NOT NULL, " +
       "product SERIAL references $productTableName(id)" +
       ");"
-    val con     = connect()
-    val stmt1   = con.createStatement()
+    val con = connect()
+    val stmt1 = con.createStatement()
     stmt1.execute(productsSQL)
-    val stmt2   = con.createStatement()
+    val stmt2 = con.createStatement()
     stmt2.execute(postingsSQL)
     stmt1.close()
     stmt2.close()

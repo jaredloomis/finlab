@@ -3,22 +3,22 @@ package com.jaredloomis.analmark
 import com.jaredloomis.analmark.db.PostgresPostingDBModel
 import com.jaredloomis.analmark.db.PostgresProductDBModel
 import com.jaredloomis.analmark.model.CurrencyAmount
-import com.jaredloomis.analmark.model.productmarket.Brand
-import com.jaredloomis.analmark.model.productmarket.Product
-import com.jaredloomis.analmark.model.productmarket.ProductPosting
-import com.jaredloomis.analmark.model.productmarket.RawPosting
-import com.jaredloomis.analmark.scrape.ProductMarketType
+import com.jaredloomis.analmark.model.product.Brand
+import com.jaredloomis.analmark.model.product.Product
+import com.jaredloomis.analmark.model.product.ProductPosting
+import com.jaredloomis.analmark.model.product.RawPosting
+import com.jaredloomis.analmark.view.product.ProductMarketType
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import kotlin.random.Random
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class DBModelTest {
-  val randID    = Random.nextInt(100)
+  val randID = Random.nextInt(100)
   val exProduct = Product(12, "iPhone $randID", Brand("Apple"))
   val exPosting = RawPosting(
-          ProductMarketType.EBAY, "", "Brand new in case very ciol iPhone $randID New buy cehap",
-          "", CurrencyAmount("$700"), emptyMap()
+    ProductMarketType.EBAY, "", "Brand new in case very ciol iPhone $randID New buy cehap",
+    "", CurrencyAmount("$700"), emptyMap()
   )
   val exProductPosting = ProductPosting(exProduct, exPosting)
 

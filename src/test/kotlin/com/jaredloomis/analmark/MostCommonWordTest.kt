@@ -17,10 +17,10 @@ class MostCommonWordTest {
   @Test
   fun mostCommonWords() {
     val postingDB = PostgresPostingDBModel(PostgresProductDBModel())
-    postingDB.all().forEach {productPosting ->
+    postingDB.all().forEach { productPosting ->
       tokens("${productPosting.posting.title} ${productPosting.posting.description}")
-        .filter {word -> word.all {c -> c.isLetter()}}
-        .forEach {word ->
+        .filter { word -> word.all { c -> c.isLetter() } }
+        .forEach { word ->
           wordCountTree.put(word, 1 + (wordCountTree.search(word) ?: 0))
         }
     }
@@ -29,8 +29,8 @@ class MostCommonWordTest {
     val wordsList = wordCountTree.ordered()?.collect(Collectors.toList())
     val revWordsList = wordsList
       ?.subList(Math.max(0, wordsList.size - topWordCount), wordsList.size)
-      ?.sortedBy {it.value}
+      ?.sortedBy { it.value }
 
-    revWordsList?.forEach {println(it.key); println(it.value);}
+    revWordsList?.forEach { println(it.key); println(it.value); }
   }
 }

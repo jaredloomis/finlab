@@ -17,10 +17,10 @@ class ParserTest {
   @Test
   fun removeSubstringSimple() {
     val ret1 = removeSubstring("hell", "HELLO, world", caseSensitive = false)
-    assert(ret1 == "O, world") {"'$ret1' should be 'O, world'"}
+    assert(ret1 == "O, world") { "'$ret1' should be 'O, world'" }
     val ret2 = removeSubstring("", "HELLO, world", caseSensitive = false)
-    assert(ret2 == "HELLO, world") {"'$ret2' should be 'HELLO, world'"}
+    assert(ret2 == "HELLO, world") { "'$ret2' should be 'HELLO, world'" }
     val ret3 = removeSubstring("asdf", "", caseSensitive = false)
-    assert(ret3 == "") {"'$ret3' should be ''"}
+    assert(ret3 == "") { "'$ret3' should be ''" }
   }
 }

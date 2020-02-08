@@ -23,7 +23,7 @@ val ch = {
   c.formatter = formatter
   c
 }()
-  //logger.addHandler(ch)
+//logger.addHandler(ch)
 // File
 val fh = {
   val h = FileHandler("logs/$executionTag.log")
@@ -32,13 +32,13 @@ val fh = {
   h
 }()
 
-fun <T: Any> getLogger(klass: Class<T>): Logger {
+fun <T : Any> getLogger(klass: Class<T>): Logger {
   // Create log dir
   Files.createDirectories(Paths.get("logs"))
 
   // Create logger, remove existing handlers
   val logger = Logger.getLogger(klass.name)
-  logger.handlers.forEach {logger.removeHandler(it)}
+  logger.handlers.forEach { logger.removeHandler(it) }
   logger.level = Level.ALL
 
   logger.addHandler(ch)
@@ -47,7 +47,7 @@ fun <T: Any> getLogger(klass: Class<T>): Logger {
   return logger
 }
 
-fun <T: Any> getLogger(klass: KClass<T>): Logger {
+fun <T : Any> getLogger(klass: KClass<T>): Logger {
   return getLogger(klass.java)
 }
 
@@ -55,9 +55,9 @@ open class CustomFormatter(val format: String) : Formatter() {
   override fun format(record: LogRecord): String {
     val zdt = ZonedDateTime.ofInstant(record.instant, ZoneId.systemDefault())
     var source: String
-    if(record.sourceClassName != null) {
+    if (record.sourceClassName != null) {
       source = record.sourceClassName
-      if(record.sourceMethodName != null) {
+      if (record.sourceMethodName != null) {
         source = source + " " + record.sourceMethodName
       }
     } else {
@@ -66,7 +66,7 @@ open class CustomFormatter(val format: String) : Formatter() {
 
     val message = this.formatMessage(record)
     var throwable = ""
-    if(record.thrown != null) {
+    if (record.thrown != null) {
       val sw = StringWriter()
       val pw = PrintWriter(sw)
       pw.println()
