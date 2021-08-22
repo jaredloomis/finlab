@@ -3,5 +3,6 @@ CREATE TABLE IF NOT EXISTS products (
   product_name TEXT UNIQUE NOT NULL,
   brand        TEXT NOT NULL,
   modelID      TEXT,
-  upc          TEXT
+  upc          TEXT,
+  category     TEXT
 );

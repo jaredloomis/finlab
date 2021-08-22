@@ -1,4 +1,4 @@
-package com.jaredloomis.analmark.view.forex
+package com.jaredloomis.analmark.scrape.forex
 
 import com.jaredloomis.analmark.model.forex.Exchange
 import com.jaredloomis.analmark.model.forex.ForexMarketModel

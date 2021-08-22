@@ -1,4 +1,4 @@
-package com.jaredloomis.analmark.view.product
+package com.jaredloomis.analmark.scrape.product
 
 import com.jaredloomis.analmark.legacy.ProductDB
 import com.jaredloomis.analmark.model.CurrencyAmount
@@ -6,10 +6,14 @@ import com.jaredloomis.analmark.model.product.EbayRawPosting
 import com.jaredloomis.analmark.model.product.RawPosting
 import com.jaredloomis.analmark.util.getLogger
 import org.openqa.selenium.*
+import org.openqa.selenium.chrome.ChromeDriver
+import org.openqa.selenium.chrome.ChromeOptions
 import org.openqa.selenium.firefox.FirefoxDriver
 import org.openqa.selenium.firefox.FirefoxOptions
 import org.openqa.selenium.support.ui.WebDriverWait
+import java.io.BufferedReader
 import java.io.ByteArrayOutputStream
+import java.io.InputStreamReader
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -19,6 +23,7 @@ import java.util.*
 import java.util.concurrent.Executors
 import java.util.logging.Logger
 import java.util.stream.Collectors
+import java.util.stream.Stream
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.math.min
@@ -30,10 +35,14 @@ enum class ProductMarketType {
 
 abstract class ProductMarket constructor(val type: ProductMarketType, val productDB: ProductDB, val name: String, val startURL: String) {
   abstract fun init()
-  abstract fun fetchProductBatch(maxSize: Long = Long.MAX_VALUE): List<RawPosting> // TODO refactor to Stream<RawPosting>
+  abstract fun fetchProductBatch(maxSize: Long = Long.MAX_VALUE): List<RawPosting>
   abstract fun search(query: String)
   abstract fun quit()
   abstract fun navigateToRandomProductList()
+
+  fun postings(): Stream<List<RawPosting>> {
+    return Stream.generate { fetchProductBatch() }.sequential()
+  }
 }
 
 abstract class SeleniumProductMarket(
@@ -44,36 +53,45 @@ abstract class SeleniumProductMarket(
   : ProductMarket(type, productDB, name, startURL) {
 
   lateinit var driver: WebDriver
-  var headless: Boolean = true
+  var headless = true
+  var takeScreenshots = true
+  var backend = "chrome"
   var currentPage: Int = 0
   var lastItem: Int = -1
   var screenshotCount: Int = 0
-  protected val logger: Logger = getLogger(this::class)
 
+  protected val logger: Logger = getLogger(this::class)
   private val threads = Executors.newSingleThreadExecutor()
 
   override fun init() {
-    /* TODO get HtmlUnit working
-    if(headless) {
-      driver = object : HtmlUnitDriver(true) {
-        override fun newWebClient(version: BrowserVersion): WebClient {
-          val webClient = super.newWebClient(version)
-          webClient.options.isThrowExceptionOnScriptError = false
-          return webClient
+    if(!::driver.isInitialized) {
+      driver = when(backend) {
+        "chrome", "chromium" -> {
+          val options = ChromeOptions()
+            .setHeadless(headless)
+
+          if (System.getProperty("webdriver.chrome.driver") == null) {
+            System.setProperty(
+              "webdriver.chrome.driver",
+              findExecutablePath("chromedriver")!!
+            )
+          }
+          ChromeDriver(options)
+        }
+        else -> {
+          val options = FirefoxOptions()
+            .setHeadless(headless)
+
+          if (System.getProperty("webdriver.gecko.driver") == null) {
+            System.setProperty(
+              "webdriver.gecko.driver",
+              findExecutablePath("geckodriver")!!
+            )
+          }
+          FirefoxDriver(options)
         }
       }
-    } else {*/
-    val options = FirefoxOptions()
-      .setHeadless(headless)
-
-    if (System.getProperty("webdriver.gecko.driver") == null) {
-      System.setProperty(
-        "webdriver.gecko.driver",
-        "C:\\Program Files\\geckodriver\\geckodriver-v0.24.0-win64\\geckodriver.exe"
-      )
     }
-    driver = FirefoxDriver(options)
-    //}
   }
 
   // XXX TODO FIX this does not respect pages. Must track lastItem
@@ -137,8 +155,12 @@ abstract class SeleniumProductMarket(
   protected abstract fun getRandomProductListUrls(): List<String>
 
   override fun quit() {
-    if (::driver.isInitialized)
+    try {
       driver.quit()
+    } catch(ex: Exception) {
+      System.err.println("Error quiting SeleniumProductMarket.")
+      ex.printStackTrace()
+    }
   }
 
   fun nextPage(): Boolean {
@@ -193,22 +215,24 @@ abstract class SeleniumProductMarket(
   }
 
   fun screenshot(tag: String? = null) {
-    ++screenshotCount
+    if(takeScreenshots) {
+      ++screenshotCount
 
-    threads.submit {
-      try {
-        val src = (driver as TakesScreenshot).getScreenshotAs(OutputType.FILE)
-        val destDir = Paths.get("logs", "screenshots")
-        val destName = "${Date()}_${tag ?: ""}"
-        val destPath = findFreePath(destDir, destName, ".png")
-        Files.createDirectories(destDir)
-        Files.move(src.toPath(), destPath)
-      } catch (ex: Exception) {
-        val buf = ByteArrayOutputStream()
-        val ps = PrintStream(buf)
-        ex.printStackTrace(ps)
-        val str = buf.toString(StandardCharsets.UTF_8)
-        logger.warning("Failed to take a screenshot\n$str")
+      threads.submit {
+        try {
+          val src = (driver as TakesScreenshot).getScreenshotAs(OutputType.FILE)
+          val destDir = Paths.get("logs", "screenshots")
+          val destName = "${Date()}_${tag ?: ""}"
+          val destPath = findFreePath(destDir, destName, ".png")
+          Files.createDirectories(destDir)
+          Files.move(src.toPath(), destPath)
+        } catch (ex: Exception) {
+          val buf = ByteArrayOutputStream()
+          val ps = PrintStream(buf)
+          ex.printStackTrace(ps)
+          val str = buf.toString(StandardCharsets.UTF_8)
+          logger.warning("Failed to take a screenshot\n$str")
+        }
       }
     }
   }
@@ -241,8 +265,8 @@ abstract class DetailedProductMarket(
   type: ProductMarketType, productDB: ProductDB, name: String, startURL: String,
   productBy: By, titleBy: By, priceBy: By,
   searchInputBy: By, searchBtnBy: By,
-  nextPageBtnBy: By, productListPageIdBy: By, val productPageIdBy: By)
-  : SeleniumProductMarket(type, productDB, name, startURL, productBy, titleBy, priceBy,
+  nextPageBtnBy: By, productListPageIdBy: By, val productPageIdBy: By
+) : SeleniumProductMarket(type, productDB, name, startURL, productBy, titleBy, priceBy,
   searchInputBy, searchBtnBy, nextPageBtnBy, productListPageIdBy) {
 
   open fun fetchProduct(): RawPosting? {
@@ -267,7 +291,11 @@ abstract class DetailedProductMarket(
       .mapNotNull { link ->
         driver.navigate().to(link)
         waitForPageLoad()
-        val product = fetchProduct()
+        val product = try {
+          fetchProduct()
+        } catch (ex: Exception) {
+          null
+        }
         driver.navigate().back()
         waitForPageLoad()
         logger.info("Posting parsed: $product")
@@ -279,6 +307,7 @@ abstract class DetailedProductMarket(
 
     if (posts.isEmpty()) {
       logger.warning("[$name] No products found")
+      screenshot("no_products_found")
     }
 
     if (lastItem >= productElems.size) {
@@ -308,14 +337,14 @@ class Craigslist(productDB: ProductDB) : DetailedProductMarket(
   By.className("pagenum"), By.id("titletextonly")
 ) {
   override fun getRandomProductListUrls(): List<String> {
-    return listOf("https://craigslist.org/d/for-sale/search/sss")
+    return listOf("https://craigslist.org/")
   }
 }
 
 class EBay(productDB: ProductDB) : DetailedProductMarket(
   ProductMarketType.EBAY, productDB, "eBay", "https://www.ebay.com/",
   By.cssSelector(".s-item__link, a[itemprop=url]"), By.id("itemTitle"),
-  By.cssSelector("#prcIsum, #prcIsum_bidPrice"),
+  By.cssSelector("#prcIsum, #prcIsum_bidPrice, *[itemprop=price]"),
   By.id("gh-ac"), By.id("gh-btn"), By.cssSelector("a[rel=next]"),
   By.className("s-answer-region"), By.id("itemTitle")
 ) {
@@ -324,7 +353,7 @@ class EBay(productDB: ProductDB) : DetailedProductMarket(
   override fun fetchProduct(): RawPosting? {
     val url = driver.currentUrl
     val titleStr = findElement(titleBy)?.text ?: ""
-    val descrStr = findElement(By.id("desc_div"))?.text ?: findElement(By.id("ds_div"))?.text
+    val descrStr = findElement(descriptionBy)?.text ?: findElement(By.id("ds_div"))?.text
     ?: findElement(By.id("ProductDetails"))?.text ?: ""
     val priceStr = findElement(priceBy)?.text ?: ""
     return try {
@@ -376,6 +405,7 @@ class EBay(productDB: ProductDB) : DetailedProductMarket(
     currentPage = 1
   }
 
+  /// @see this#navigateToRandomProductList()
   override fun getRandomProductListUrls(): List<String> {
     return emptyList()
   }
@@ -439,5 +469,16 @@ fun createMarket(ty: ProductMarketType, productDB: ProductDB): ProductMarket {
     ProductMarketType.EBAY -> EBay(productDB)
     ProductMarketType.NEWEGG -> NewEgg(productDB)
     ProductMarketType.OVERSTOCK -> Overstock(productDB)
+  }
+}
+
+private fun findExecutablePath(name: String): String? {
+  return try {
+    val p = Runtime.getRuntime().exec("whereis $name")
+    val br = BufferedReader(InputStreamReader(p.inputStream))
+    val output = br.readLine()
+    output.split(" ")[1]
+  } catch (ex: Exception) {
+    return null
   }
 }

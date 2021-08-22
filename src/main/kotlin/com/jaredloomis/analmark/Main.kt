@@ -1,54 +1,61 @@
 package com.jaredloomis.analmark
 
+import com.jaredloomis.analmark.db.PostgresPostingDBModel
 import com.jaredloomis.analmark.db.PostgresProductDBModel
-import com.jaredloomis.analmark.model.CurrencyAmount
-import com.jaredloomis.analmark.model.product.EbayRawPosting
-import com.jaredloomis.analmark.model.product.RawPosting
-import com.jaredloomis.analmark.view.product.Craigslist
-import com.jaredloomis.analmark.view.product.EBay
-import com.jaredloomis.analmark.view.product.SeleniumProductMarket
-import java.util.stream.Collectors
+import com.jaredloomis.analmark.model.product.Brand
+import com.jaredloomis.analmark.model.product.Product
+import com.jaredloomis.analmark.model.product.ProductPosting
+import com.jaredloomis.analmark.scrape.product.EBay
+import com.jaredloomis.analmark.scrape.product.SeleniumProductMarket
+import java.util.concurrent.TimeUnit
+import java.util.logging.Logger
+import kotlin.system.exitProcess
 
 fun main() {
-  val query = "adidas"
-  val batchCount = 3
-  val buyPosts: MutableList<RawPosting> = ArrayList()
-
+  val logger = Logger.getLogger("Main")
   val productDB = PostgresProductDBModel()
+  productDB.init()
+  val postingDB = PostgresPostingDBModel(productDB)
+  postingDB.init()
 
   val buyMarket: SeleniumProductMarket = EBay(productDB)
   buyMarket.headless = false
-  val sellMarket: SeleniumProductMarket = Craigslist(productDB)
-  sellMarket.headless = false
+  buyMarket.backend = "chrome"
+  buyMarket.takeScreenshots = false
+  buyMarket.init()
 
-  //productDB.addProduct(Product("wasabi", Brand("Costco")))
-  val matches = productDB.find(EbayRawPosting("", "Costco", "high quality", CurrencyAmount("$200.00"), emptyMap())).collect(Collectors.toList())
-  print("MATCHES: $matches")
-
-  /*
-  try {
-    buyMarket.init()
-    buyMarket.search(query)
-    repeat(batchCount) {
-      val buyBatch = buyMarket.fetchProductBatch(maxSize=3)
-      println("BATCH: $buyBatch")
-      buyPosts.addAll(buyBatch)
-    }
+  val shutdown = {
     buyMarket.quit()
+    productDB.close()
+    postingDB.close()
+    ProcessBuilder(listOf("bash", "./scripts/kill-hanging-processes")).start().waitFor(10, TimeUnit.SECONDS)
+    Unit
+  }
 
-    sellMarket.init()
-    val sellPosts = buyPosts.flatMap {post ->
-      sellMarket.search(post.brand?:"" + " " + post.title)
-      val sellBatch = sellMarket.fetchProductBatch(maxSize=3)
-      sellBatch
+  // Add shutdown hook (called when Ctrl-c)
+  Runtime.getRuntime().addShutdownHook(Thread(shutdown))
+
+  try {
+    val batchCount = 12
+    val batchSize = 40L
+    repeat(batchCount) {
+      buyMarket.navigateToRandomProductList()
+      val buyBatch = buyMarket.fetchProductBatch(maxSize=batchSize)
+      logger.info("BATCH: $buyBatch")
+      buyBatch.forEach { rawPost ->
+        if (rawPost.productID != null) {
+          val product = Product(rawPost.model ?: "SEE UPC", Brand(rawPost.brand ?: "SEE UPC"))
+          product.modelID = rawPost.model
+          product.upc = rawPost.upc
+          productDB.insert(product)
+          postingDB.insert(ProductPosting(product, rawPost))
+        }
+      }
     }
-    sellMarket.quit()
-
-    println(buyPosts)
-    //println(ebPosts)
   } catch (ex: Throwable) {
     ex.printStackTrace()
-    buyMarket.quit()
-    sellMarket.quit()
-  }*/
+  } finally {
+    shutdown()
+  }
+  exitProcess(0)
 }

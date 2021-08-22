@@ -3,9 +3,9 @@ package com.jaredloomis.analmark
 import com.jaredloomis.analmark.db.DummyProductDBModel
 import com.jaredloomis.analmark.legacy.ProductDB
 import com.jaredloomis.analmark.model.product.RawPosting
-import com.jaredloomis.analmark.view.product.ProductMarketType
-import com.jaredloomis.analmark.view.product.SeleniumProductMarket
-import com.jaredloomis.analmark.view.product.createMarket
+import com.jaredloomis.analmark.scrape.product.ProductMarketType
+import com.jaredloomis.analmark.scrape.product.SeleniumProductMarket
+import com.jaredloomis.analmark.scrape.product.createMarket
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test

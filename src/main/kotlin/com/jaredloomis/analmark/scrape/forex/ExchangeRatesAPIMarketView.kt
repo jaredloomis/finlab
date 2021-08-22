@@ -1,4 +1,4 @@
-package com.jaredloomis.analmark.view.forex
+package com.jaredloomis.analmark.scrape.forex
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper

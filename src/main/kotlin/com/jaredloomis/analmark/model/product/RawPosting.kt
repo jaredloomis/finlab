@@ -1,7 +1,7 @@
 package com.jaredloomis.analmark.model.product
 
 import com.jaredloomis.analmark.model.CurrencyAmount
-import com.jaredloomis.analmark.view.product.ProductMarketType
+import com.jaredloomis.analmark.scrape.product.ProductMarketType
 import java.time.Instant
 
 open class RawPosting(
@@ -11,27 +11,36 @@ open class RawPosting(
   _specs: Map<String, String>
 ) {
   val brand: String?
-    get() = specs["brand"] ?: specs["maker"] ?: specs["manufacturer"] ?: specs["make"]
+    get() = specs["brand"] ?: specs["maker"] ?: specs["make"] ?: specs["manufacturer"]
   val model: String?
-    get() = specs["model"] ?: specs["model id"] ?: specs["model no"] ?: specs["modelid"]
+    get() = specs["model"] ?: specs["model id"] ?: specs["model no"] ?: specs["modelid"] ?: specs["mpn"]
+  val upc: String?
+    get() = specs["upc"]
   val seen: Instant = Instant.now()
   var category: String? = null
   val tags: MutableSet<String> = HashSet()
   val specs = _specs
     .mapValues {
       when (it.value) {
+        "" -> "true"
         "does not apply" -> null
         else -> it.value
       }
     }
     .filter { it.value != null }
 
+  val productID: ProductID? = when {
+    upc != null -> ProductID.UPC(upc!!)
+    brand != null && model != null -> ProductID.BrandModel(brand!!, model!!)
+    else -> null
+  }
+
   open fun parsePrice(str: String): CurrencyAmount {
     return CurrencyAmount(str)
   }
 
   override fun toString(): String {
-    return "RawPosting(market='$market' title='$title', description='$description', price='$price', category='$category' seen='$seen' url='$url' specs=$specs, tags=$tags)"
+    return "RawPosting(market='$market' title='$title', description='$description', price=$price, category='$category' seen='$seen' url='$url' specs=$specs, tags=$tags)"
   }
 
   override fun equals(other: Any?): Boolean {

@@ -7,7 +7,7 @@ import com.jaredloomis.analmark.model.product.Brand
 import com.jaredloomis.analmark.model.product.Product
 import com.jaredloomis.analmark.model.product.ProductPosting
 import com.jaredloomis.analmark.model.product.RawPosting
-import com.jaredloomis.analmark.view.product.ProductMarketType
+import com.jaredloomis.analmark.scrape.product.ProductMarketType
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import kotlin.random.Random

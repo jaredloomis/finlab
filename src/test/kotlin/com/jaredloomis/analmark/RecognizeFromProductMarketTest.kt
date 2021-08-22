@@ -8,7 +8,7 @@ import com.jaredloomis.analmark.model.product.Product
 import com.jaredloomis.analmark.model.product.ProductPosting
 import com.jaredloomis.analmark.model.product.RawPosting
 import com.jaredloomis.analmark.nlp.DBCachingProductRecognition
-import com.jaredloomis.analmark.view.product.*
+import com.jaredloomis.analmark.scrape.product.*
 import com.jaredloomis.analmark.util.getLogger
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll

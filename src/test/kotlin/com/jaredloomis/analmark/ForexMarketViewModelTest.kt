@@ -1,6 +1,6 @@
 package com.jaredloomis.analmark
 
-import com.jaredloomis.analmark.view.forex.ExchangeRatesAPIMarketView
+import com.jaredloomis.analmark.scrape.forex.ExchangeRatesAPIMarketView
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test

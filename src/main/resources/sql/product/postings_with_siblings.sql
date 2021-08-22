@@ -5,5 +5,5 @@ FROM postings a
 INNER JOIN products b ON a.product = b.id
 )
 SELECT * FROM prod_posts
-WHERE cnt > 1 -- AND markets are different
+--WHERE cnt > 1 -- AND markets are different
 ORDER BY cnt DESC;

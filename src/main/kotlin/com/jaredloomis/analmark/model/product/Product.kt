@@ -15,6 +15,13 @@ class Product(var canonicalName: String, var primaryBrand: Brand) {
   val tags: MutableSet<String> = HashSet()
   val associatedBrands: MutableSet<String> = HashSet()
 
+  val productID: ProductID?
+    get() = when {
+        upc != null     -> ProductID.UPC(upc!!)
+        modelID != null -> ProductID.BrandModel(primaryBrand.name, modelID!!)
+        else            -> null
+      }
+
   constructor(id: Long, canonicalName: String, brand: Brand) : this(canonicalName, brand) {
     this.id = id
   }
