@@ -66,7 +66,6 @@ fun main() {
       logger.info("BATCH: $buyBatch")
       buyBatch.forEach { rawPost ->
         if (rawPost.productID != null) {
-          println("FOUND VALID PRODUCT\n\n\n\n")
           val product = Product(rawPost.model ?: "SEE UPC", Brand(rawPost.brand ?: "SEE UPC"))
           product.modelID = rawPost.model
           product.upc = rawPost.upc

@@ -26,6 +26,16 @@ class CurrencyAmount {
     }
   }
 
+  override fun equals(other: Any?): Boolean {
+    return if(other == null || other !is CurrencyAmount) {
+      false
+    } else if(other === this) {
+      true
+    } else {
+      pennies == other.pennies && currency == other.currency
+    }
+  }
+
   override fun toString(): String {
     return "CurrencyAmount(pennies=$pennies, currency=${currency.currencyCode})"
   }

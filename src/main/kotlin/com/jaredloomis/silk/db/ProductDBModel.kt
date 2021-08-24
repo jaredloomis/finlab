@@ -53,6 +53,7 @@ class PostgresProductDBModel(tableName: String) : PostgresDBModel<RawPosting, Pr
       entity.modelID != null -> findByProductID(ProductID.BrandModel(entity.primaryBrand.name, entity.modelID!!))
       else                   -> null
     }
+    logger.info("FOUND EXISTING ENTRY $found")
     if (found != null) {
       val ret = found.merge(entity)
 
@@ -136,12 +137,16 @@ class PostgresProductDBModel(tableName: String) : PostgresDBModel<RawPosting, Pr
     }
 
     val results = stmt.executeQuery()
-    if (results.next()) {
-      return parseProduct(results)
+    return if (results.next()) {
+      val product = parseProduct(results)
+      results.close()
+      stmt.close()
+      product
+    } else {
+      results.close()
+      stmt.close()
+      null
     }
-    results.close()
-    stmt.close()
-    return null
   }
 
   override fun find(query: RawPosting): Stream<Product> {

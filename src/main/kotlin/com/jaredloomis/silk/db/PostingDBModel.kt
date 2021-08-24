@@ -71,6 +71,7 @@ class PostgresPostingDBModel(
     }
 
     val product = productDBModel.insert(entity.product)
+    logger.info("Inserted Product")
     val insertSQL = "INSERT INTO $tableName VALUES (DEFAULT, ?, ?, ?, ?, ?, ?, ?, ?);"
     val con = connect()
     val stmt = con.prepareStatement(insertSQL, Statement.RETURN_GENERATED_KEYS)
@@ -104,7 +105,6 @@ class PostgresPostingDBModel(
     } finally {
       stmt.close()
     }
-    stmt.close()
     return ProductPosting(id, product, entity.posting)
   }
 
@@ -128,17 +128,8 @@ class PostgresPostingDBModel(
     // TODO streaming implementation
     val matches = ArrayList<ProductPosting>()
     val querySQL = """
-      SELECT a.*, b.product_name, b,brand FROM $tableName a
-      LEFT JOIN $productTableName b ON a.product = b.id
-      WHERE
-        a.id = ? OR
-        to_tsvector(specs) @@ to_tsquery('upc=' + ?) OR
-        to_tsvector(LOWER(title)) @@ to_tsquery(LOWER(?)) OR
-        to_tsvector(LOWER(title)) @@ to_tsquery(LOWER(?)) OR
-        to_tsvector(LOWER(description)) @@ to_tsquery(LOWER(?)) OR
-        to_tsvector(LOWER(description)) @@ to_tsquery(LOWER(?)) OR
-        to_tsvector(LOWER(product_name)) @@ to_tsquery(LOWER(?)) OR
-        to_tsvector(LOWER(brand)) @@ to_tsquery(LOWER(?))
+      SELECT * FROM $tableName
+      WHERE product = ?
     """.trimIndent()
 
     val con = connect()
@@ -147,19 +138,11 @@ class PostgresPostingDBModel(
       stmt.setLong(1, query.id!!)
     else
       stmt.setNull(1, Types.BIGINT)
-    if (query.upc != null)
-      stmt.setString(2, query.upc!!)
-    else
-      stmt.setNull(2, Types.VARCHAR)
-    stmt.setString(3, matcherString(query.canonicalName))
-    stmt.setString(4, matcherString(query.primaryBrand.name))
-    stmt.setString(5, matcherString(query.primaryBrand.name))
-    stmt.setString(6, matcherString(query.canonicalName))
-    stmt.setString(7, matcherString(query.canonicalName))
-    stmt.setString(8, matcherString(query.primaryBrand.name))
+
     val results = stmt.executeQuery()
     while (results.next()) {
       val post = parseProductPosting(results)
+      print("FOUND $post\n\n\n\n\n\n")
       if (post != null) {
         matches.add(post)
       } else {
