@@ -7,6 +7,7 @@ import kotlin.reflect.KType
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.full.starProjectedType
 import kotlin.reflect.javaType
+import kotlin.reflect.jvm.jvmErasure
 
 /**
  * A SQL statement with references to a Java object's members. Values are filled in using a PreparedStatement.
@@ -52,13 +53,13 @@ data class SQLStatement(val template: String) {
       }
 
       if(prop.first == null) {
-        val propType = when(prop.second) {
+        val propType = when(prop.second?.kotlin) {
           // TODO expand supported types
           String::class -> Types.VARCHAR
           Int::class    -> Types.INTEGER
           Long::class   -> Types.BIGINT
           Date::class   -> Types.DATE
-          else          -> throw Exception("Unrecognized type referenced in a SQL template:\n$template\nmodel: $model")
+          else          -> throw Exception("Unrecognized type (${prop.second}) referenced in a SQL template:\n$template\nmodel: $model")
         }
         stmt.setNull(i+1, propType)
       } else {
@@ -77,8 +78,8 @@ data class SQLStatement(val template: String) {
   }
 }
 
-fun reflectToMap(obj: Any): Map<String, Pair<Any?, Class<*>?>> {
-  val map: MutableMap<String, Pair<Any?, Class<*>?>> = HashMap()
+fun reflectToMap(obj: Any): Map<String, Pair<Any?, Class<*>>> {
+  val map: MutableMap<String, Pair<Any?, Class<*>>> = HashMap()
   /*
   for (field in obj.javaClass.declaredFields) {
     field.isAccessible = true
@@ -90,7 +91,8 @@ fun reflectToMap(obj: Any): Map<String, Pair<Any?, Class<*>?>> {
   for (field in obj::class.memberProperties) {
     try {
       val v = field.call(obj)
-      map[field.name] = Pair(v, if(v == null) null else v::class.java)
+      field.returnType.jvmErasure.java
+      map[field.name] = Pair(v, /*if(v == null) null else v::class.java*/ field.returnType.jvmErasure.java)
     } catch (e: Exception) {
       e.printStackTrace()
     }

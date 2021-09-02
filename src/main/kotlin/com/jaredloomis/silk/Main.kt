@@ -59,11 +59,10 @@ class PriceUpdates : CliktCommand() {
 
     postingDB.all().forEach { prodPost ->
       val prod = prodPost.product
-      marketScraper.search(prod.upc ?: "${prod.primaryBrand} ${prod.modelID}")
+      marketScraper.search(prod.upc ?: "${prod.primaryBrand.name} ${prod.modelID}")
       marketScraper.fetchProductBatch(5).forEach { post ->
         val product: Product? = matcher.matches(post).findAny().orElse(null)
         if(product != null) {
-          println("IT FUCKIN WARKS!!!!\n\n\n\n\n\n")
           postingDB.insert(ProductPosting(product, post))
         }
       }
