@@ -2,7 +2,7 @@ package com.jaredloomis.silk
 
 import com.jaredloomis.silk.db.DBModel
 import com.jaredloomis.silk.db.PostgresPostingDBModel
-import com.jaredloomis.silk.db.PostgresProductDBModel
+import com.jaredloomis.silk.db.ProductTable
 import com.jaredloomis.silk.model.product.Product
 import com.jaredloomis.silk.model.product.ProductPosting
 import com.jaredloomis.silk.model.product.RawPosting
@@ -16,7 +16,7 @@ import org.junit.jupiter.api.TestInstance
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class DataCollectionTest {
-  val productDB: DBModel<RawPosting, Product> = PostgresProductDBModel()
+  val productDB: DBModel<RawPosting, Product> = ProductTable()
   val postingDB: DBModel<Product, ProductPosting> = PostgresPostingDBModel(productDB)
   val market = EBay(productDB)
   val recognition = DBCachingProductRecognition(productDB, postingDB)

@@ -68,6 +68,7 @@ dependencies {
   implementation "com.fasterxml.jackson.core:jackson-databind:2.10.2"
   //implementation "edu.uci.ics:crawler4j:4.4.0"
   implementation "org.kodein.di:kodein-di:7.6.0"
+  implementation "com.github.ajalt.clikt:clikt:3.2.0"
 
   testImplementation "org.junit.jupiter:junit-jupiter-engine:5.5.1"
 }

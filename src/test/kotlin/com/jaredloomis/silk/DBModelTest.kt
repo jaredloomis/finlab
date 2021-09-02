@@ -1,7 +1,7 @@
 package com.jaredloomis.silk
 
 import com.jaredloomis.silk.db.PostgresPostingDBModel
-import com.jaredloomis.silk.db.PostgresProductDBModel
+import com.jaredloomis.silk.db.ProductTable
 import com.jaredloomis.silk.model.CurrencyAmount
 import com.jaredloomis.silk.model.product.Brand
 import com.jaredloomis.silk.model.product.Product
@@ -24,7 +24,7 @@ class DBModelTest {
 
   @Test
   fun pgPosting() {
-    val model = PostgresPostingDBModel(PostgresProductDBModel())
+    val model = PostgresPostingDBModel(ProductTable())
     val posting = model.insert(exProductPosting)
     println(posting.product)
     val foundProdPost = model.findOne(posting.product)

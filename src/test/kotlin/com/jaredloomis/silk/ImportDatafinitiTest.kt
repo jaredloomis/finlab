@@ -1,6 +1,6 @@
 package com.jaredloomis.silk
 
-import com.jaredloomis.silk.db.PostgresProductDBModel
+import com.jaredloomis.silk.db.ProductTable
 import com.jaredloomis.silk.model.product.Brand
 import com.jaredloomis.silk.model.product.Product
 import org.apache.commons.csv.CSVFormat
@@ -13,7 +13,7 @@ import java.nio.file.Paths
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ImportDatafinitiTest {
-  val productDB = PostgresProductDBModel()
+  val productDB = ProductTable()
   val dataFile = Paths.get("data", "DatafinitiElectronicsProductsPricingData.csv")
 
   @Test

@@ -1,5 +1,6 @@
 package com.jaredloomis.silk.db
 
+import com.jaredloomis.silk.model.product.Product
 import org.kodein.di.DI
 import org.kodein.di.bind
 import org.kodein.di.singleton
@@ -8,6 +9,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.sql.Connection
 import java.sql.DriverManager
+import java.sql.ResultSet
 import java.util.stream.Stream
 
 abstract class DBModel<Q, T> {
@@ -31,12 +33,46 @@ abstract class PostgresDBModel<Q, T>(val tableName: String) : DBModel<Q, T>() {
    */
   abstract fun createTableSQL(): SQLSource
 
+  abstract fun parseItem(results: ResultSet): T?
+
   override fun init() {
     ensureTableExists()
   }
 
   override fun close() {
     connection?.close()
+  }
+
+  override fun findByID(id: Long): T? {
+    var ret: T? = null
+    val querySQL = "SELECT * FROM $tableName WHERE id=${id}"
+
+    val con = connect()
+    val stmt = con.createStatement()
+    val results = stmt.executeQuery(querySQL)
+    if (results.next()) {
+      ret = parseItem(results)
+    }
+    results.close()
+    stmt.close()
+    return ret
+  }
+
+  override fun all(): Stream<T> {
+    // TODO true streaming implementation
+    val matches = ArrayList<T?>()
+    val querySQL = "SELECT * FROM $tableName"
+
+    val con = connect()
+    val stmt = con.createStatement()
+    val results = stmt.executeQuery(querySQL)
+    while (results.next()) {
+      matches.add(parseItem(results))
+    }
+    results.close()
+    stmt.close()
+
+    return matches.stream().filter { it != null }.map { it!! }
   }
 
   protected fun ensureTableExists() {

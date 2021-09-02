@@ -2,7 +2,7 @@ package com.jaredloomis.silk
 
 import com.jaredloomis.silk.db.DBModel
 import com.jaredloomis.silk.db.PostgresPostingDBModel
-import com.jaredloomis.silk.db.PostgresProductDBModel
+import com.jaredloomis.silk.db.ProductTable
 import com.jaredloomis.silk.legacy.ProductDB
 import com.jaredloomis.silk.model.product.Product
 import com.jaredloomis.silk.model.product.ProductPosting
@@ -20,7 +20,7 @@ import kotlin.random.Random
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class RecognizeFromProductMarketTest {
   var marketCounter: Int = Random.nextInt(100)
-  val productDB: DBModel<RawPosting, Product> = PostgresProductDBModel()
+  val productDB: DBModel<RawPosting, Product> = ProductTable()
   val postingDB: DBModel<Product, ProductPosting> = PostgresPostingDBModel(productDB)
   val buyMarket = EBay(productDB) //randomMarket(productDB)
   val sellMarket = Craigslist(productDB) //randomMarket(productDB)

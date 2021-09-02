@@ -15,7 +15,7 @@ import kotlin.reflect.KClass
 val executionTag = Date().toString().replace(':', '.')
 
 // Formatting of log messages
-val formatter = CustomFormatter("ANALMARK [%1\$tF %1\$tT] [%4\$-7s] %5\$s %n")
+val formatter = CustomFormatter("SILK [%1\$tF %1\$tT] [%4\$-7s] %5\$s %n")
 
 // Console
 val ch = {

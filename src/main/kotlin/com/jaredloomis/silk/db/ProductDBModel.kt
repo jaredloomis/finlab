@@ -7,7 +7,6 @@ import com.jaredloomis.silk.model.product.RawPosting
 import com.jaredloomis.silk.nlp.wordsInCommon
 import org.kodein.di.DI
 import org.kodein.di.bind
-import org.kodein.di.instance
 import org.kodein.di.singleton
 import org.postgresql.util.PSQLException
 import java.sql.ResultSet
@@ -65,7 +64,7 @@ class PostgresProductDBModel(tableName: String) : PostgresDBModel<RawPosting, Pr
         WHERE id = %second.id
       """.trimIndent()
       val con = connect()
-      val stmt = SQLStatement(con, updateSql).prepare(Pair(entity, found))
+      val stmt = SQLStatement(updateSql).prepare(con, Pair(entity, found))
       try {
         stmt.executeUpdate()
       } catch (ex: PSQLException) {
@@ -85,7 +84,7 @@ class PostgresProductDBModel(tableName: String) : PostgresDBModel<RawPosting, Pr
       VALUES (DEFAULT, %canonicalName, %primaryBrand.name, %modelID, %upc, %category);
     """
     val con = connect()
-    val stmt = SQLStatement(con, insertSQL).prepare(entity)
+    val stmt = SQLStatement(insertSQL).prepare(con, entity)
 
     try {
       stmt.executeUpdate()
@@ -103,21 +102,6 @@ class PostgresProductDBModel(tableName: String) : PostgresDBModel<RawPosting, Pr
     }
 
     return entity
-  }
-
-  override fun findByID(id: Long): Product? {
-    var ret: Product? = null
-    val querySQL = "SELECT * FROM $tableName WHERE id=${id}"
-
-    val con = connect()
-    val stmt = con.createStatement()
-    val results = stmt.executeQuery(querySQL)
-    if (results.next()) {
-      ret = parseProduct(results)
-    }
-    results.close()
-    stmt.close()
-    return ret
   }
 
   private fun findByProductID(id: ProductID): Product? {
@@ -138,7 +122,7 @@ class PostgresProductDBModel(tableName: String) : PostgresDBModel<RawPosting, Pr
 
     val results = stmt.executeQuery()
     return if (results.next()) {
-      val product = parseProduct(results)
+      val product = parseItem(results)
       results.close()
       stmt.close()
       product
@@ -172,7 +156,7 @@ class PostgresProductDBModel(tableName: String) : PostgresDBModel<RawPosting, Pr
       stmt.setNull(4, Types.VARCHAR)
     val results = stmt.executeQuery()
     while (results.next()) {
-      matches.add(parseProduct(results))
+      matches.add(parseItem(results))
     }
     results.close()
     stmt.close()
@@ -180,33 +164,16 @@ class PostgresProductDBModel(tableName: String) : PostgresDBModel<RawPosting, Pr
     return matches.stream()
   }
 
-  override fun all(): Stream<Product> {
-    // TODO true streaming implementation
-    val matches = ArrayList<Product>()
-    val querySQL = "SELECT * FROM $tableName"
-
-    val con = connect()
-    val stmt = con.createStatement()
-    val results = stmt.executeQuery(querySQL)
-    while (results.next()) {
-      matches.add(parseProduct(results))
-    }
-    results.close()
-    stmt.close()
-
-    return matches.stream()
+  override fun parseItem(results: ResultSet): Product {
+    val id = results.getLong("id")
+    val productName = results.getString("product_name")
+    val productBrand = results.getString("brand")
+    return Product(id, productName, Brand(productBrand))
   }
 
   override fun createTableSQL(): SQLSource {
     return SQLSource.Resource(this::class.java.classLoader.getResource("sql/product/create.sql")!!)
   }
-}
-
-private fun parseProduct(rs: ResultSet): Product {
-  val id = rs.getLong("id")
-  val productName = rs.getString("product_name")
-  val productBrand = rs.getString("brand")
-  return Product(id, productName, Brand(productBrand))
 }
 
 val productDBModule = DI.Module("ProductDBModel") {

@@ -1,14 +1,14 @@
 package com.jaredloomis.silk
 
 import com.jaredloomis.silk.db.PostgresPostingDBModel
-import com.jaredloomis.silk.db.PostgresProductDBModel
+import com.jaredloomis.silk.db.ProductTable
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import java.util.stream.Collectors
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PostgresDumpTest {
-  val productModel = PostgresProductDBModel()
+  val productModel = ProductTable()
   val postingModel = PostgresPostingDBModel(productModel)
 
   @Test

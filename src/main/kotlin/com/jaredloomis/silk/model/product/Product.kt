@@ -15,6 +15,9 @@ class Product(var canonicalName: String, var primaryBrand: Brand) {
   val tags: MutableSet<String> = HashSet()
   val associatedBrands: MutableSet<String> = HashSet()
 
+  val prettyName: String
+    get() = "${primaryBrand.name} ${modelID ?: canonicalName}"
+
   val productID: ProductID?
     get() = when {
         upc != null     -> ProductID.UPC(upc!!)

@@ -1,7 +1,7 @@
 package com.jaredloomis.silk
 
 import com.jaredloomis.silk.db.PostgresPostingDBModel
-import com.jaredloomis.silk.db.PostgresProductDBModel
+import com.jaredloomis.silk.db.ProductTable
 import com.jaredloomis.silk.nlp.tokens
 import com.jaredloomis.silk.util.BinarySearchTree
 import org.junit.jupiter.api.Test
@@ -16,7 +16,7 @@ class MostCommonWordTest {
 
   @Test
   fun mostCommonWords() {
-    val postingDB = PostgresPostingDBModel(PostgresProductDBModel())
+    val postingDB = PostgresPostingDBModel(ProductTable())
     postingDB.all().forEach { productPosting ->
       tokens("${productPosting.posting.title} ${productPosting.posting.description}")
         .filter { word -> word.all { c -> c.isLetter() } }

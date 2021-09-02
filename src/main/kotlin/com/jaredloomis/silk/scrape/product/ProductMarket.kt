@@ -1,11 +1,13 @@
 package com.jaredloomis.silk.scrape.product
 
+import com.jaredloomis.silk.di
 import com.jaredloomis.silk.legacy.ProductDB
 import com.jaredloomis.silk.model.CurrencyAmount
 import com.jaredloomis.silk.model.product.EbayRawPosting
 import com.jaredloomis.silk.model.product.RawPosting
 import com.jaredloomis.silk.util.getLogger
 import com.jaredloomis.silk.util.retry
+import org.kodein.di.instance
 import org.openqa.selenium.*
 import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.chrome.ChromeOptions
@@ -21,6 +23,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.logging.Logger
 import java.util.stream.Collectors
@@ -34,17 +37,25 @@ enum class ProductMarketType {
   CRAIGSLIST, EBAY, OVERSTOCK, NEWEGG
 }
 
-abstract class ProductMarket constructor(val type: ProductMarketType, val productDB: ProductDB, val name: String, val startURL: String) {
+abstract class ProductMarket(val type: ProductMarketType, val productDB: ProductDB, val name: String, val startURL: String) {
   abstract fun init()
   abstract fun fetchProductBatch(maxSize: Long = Long.MAX_VALUE): List<RawPosting>
   abstract fun search(query: String)
   abstract fun quit()
   abstract fun navigateToRandomProductList()
+  //abstract fun fetch()
 
   fun postings(): Stream<List<RawPosting>> {
     return Stream.generate { fetchProductBatch() }.sequential()
   }
 }
+
+/*
+class QuickProductMarket(val type: ProductMarketType, val productDB: ProductDB) {
+  fun fetchProductBatch(maxSize: Long = Long.MAX_VALUE): List<RawPosting> {
+
+  }
+}*/
 
 abstract class SeleniumProductMarket(
   type: ProductMarketType, productDB: ProductDB, name: String, startURL: String,
@@ -54,15 +65,15 @@ abstract class SeleniumProductMarket(
   : ProductMarket(type, productDB, name, startURL) {
 
   lateinit var driver: WebDriver
+  protected val logger: Logger = getLogger(this::class)
+  private val threads by di.instance<ExecutorService>()
+
   var headless = true
   var takeScreenshots = false
   var backend = "chrome"
   var currentPage: Int = 0
   var lastItem: Int = -1
   var screenshotCount: Int = 0
-
-  protected val logger: Logger = getLogger(this::class)
-  private val threads = Executors.newSingleThreadExecutor()
 
   override fun init() {
     if(!::driver.isInitialized) {
@@ -148,7 +159,8 @@ abstract class SeleniumProductMarket(
     logger.info("[$name] Navigating to random product list page.")
     val choices = getRandomProductListUrls()
     val url = choices[Random.nextInt(choices.size)]
-    driver.navigate() to url
+    println(url)
+    driver.navigate().to(url)
     waitForPageLoad()
     currentPage = 1
   }

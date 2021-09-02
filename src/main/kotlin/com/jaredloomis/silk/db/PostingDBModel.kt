@@ -108,22 +108,6 @@ class PostgresPostingDBModel(
     return ProductPosting(id, product, entity.posting)
   }
 
-  override fun findByID(id: Long): ProductPosting? {
-    // TODO streaming implementation
-    val querySQL = "SELECT * FROM $tableName WHERE $ID_COLUMN_NAME=${id}"
-
-    val con = connect()
-    val stmt = con.createStatement()
-    val results = stmt.executeQuery(querySQL)
-    if (results.next()) {
-      return parseProductPosting(results)
-    }
-    results.close()
-    stmt.close()
-
-    return null
-  }
-
   override fun find(query: Product): Stream<ProductPosting> {
     // TODO streaming implementation
     val matches = ArrayList<ProductPosting>()
@@ -141,8 +125,7 @@ class PostgresPostingDBModel(
 
     val results = stmt.executeQuery()
     while (results.next()) {
-      val post = parseProductPosting(results)
-      print("FOUND $post\n\n\n\n\n\n")
+      val post = parseItem(results)
       if (post != null) {
         matches.add(post)
       } else {
@@ -164,34 +147,14 @@ class PostgresPostingDBModel(
     stmt.setString(1, matcherString(text))
     val results = stmt.executeQuery()
     if (results.next()) {
-      ret = parseProductPosting(results)
+      ret = parseItem(results)
     }
     results.close()
     stmt.close()
     return ret
   }
 
-  override fun all(): Stream<ProductPosting> {
-    // TODO streaming implementation
-    val matches = ArrayList<ProductPosting>()
-    val querySQL = "SELECT * FROM $tableName"
-
-    val con = connect()
-    val stmt = con.createStatement()
-    val results = stmt.executeQuery(querySQL)
-    while (results.next()) {
-      val post = parseProductPosting(results)
-      if (post != null) {
-        matches.add(post)
-      }
-    }
-    results.close()
-    stmt.close()
-
-    return matches.stream()
-  }
-
-  private fun parseProductPosting(results: ResultSet): ProductPosting? {
+  override fun parseItem(results: ResultSet): ProductPosting? {
     val id = results.getLong(ID_COLUMN_NAME)
     val marketStr = results.getString(MARKET_COLUMN_NAME)
     val url = results.getString(URL_COLUMN_NAME)
