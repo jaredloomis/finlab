@@ -1,12 +1,12 @@
 package com.jaredloomis.silk.scrape.product
 
 import com.jaredloomis.silk.di
-import com.jaredloomis.silk.legacy.ProductDB
 import com.jaredloomis.silk.model.CurrencyAmount
 import com.jaredloomis.silk.model.product.EbayRawPosting
 import com.jaredloomis.silk.model.product.RawPosting
 import com.jaredloomis.silk.util.getLogger
 import com.jaredloomis.silk.util.retry
+import io.reactivex.rxjava3.core.Flowable
 import org.kodein.di.instance
 import org.openqa.selenium.*
 import org.openqa.selenium.chrome.ChromeDriver
@@ -24,7 +24,6 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 import java.util.logging.Logger
 import java.util.stream.Collectors
 import java.util.stream.Stream
@@ -34,35 +33,27 @@ import kotlin.math.min
 import kotlin.random.Random
 
 enum class ProductMarketType {
-  CRAIGSLIST, EBAY, OVERSTOCK, NEWEGG
+  CRAIGSLIST, EBAY, OVERSTOCK, NEWEGG, WALMART
 }
 
-abstract class ProductMarket(val type: ProductMarketType, val productDB: ProductDB, val name: String, val startURL: String) {
+abstract class ProductMarket(val type: ProductMarketType, val name: String, val startURL: String) {
   abstract fun init()
   abstract fun fetchProductBatch(maxSize: Long = Long.MAX_VALUE): List<RawPosting>
   abstract fun search(query: String)
   abstract fun quit()
   abstract fun navigateToRandomProductList()
-  //abstract fun fetch()
 
   fun postings(): Stream<List<RawPosting>> {
     return Stream.generate { fetchProductBatch() }.sequential()
   }
 }
 
-/*
-class QuickProductMarket(val type: ProductMarketType, val productDB: ProductDB) {
-  fun fetchProductBatch(maxSize: Long = Long.MAX_VALUE): List<RawPosting> {
-
-  }
-}*/
-
 abstract class SeleniumProductMarket(
-  type: ProductMarketType, productDB: ProductDB, name: String, startURL: String,
+  type: ProductMarketType, name: String, startURL: String,
   val productBy: By, val titleBy: By, val priceBy: By,
   val searchInputBy: By, val searchBtnBy: By,
   val nextPageBtnBy: By, val productListPageIdBy: By)
-  : ProductMarket(type, productDB, name, startURL) {
+  : ProductMarket(type, name, startURL) {
 
   lateinit var driver: WebDriver
   protected val logger: Logger = getLogger(this::class)
@@ -194,10 +185,12 @@ abstract class SeleniumProductMarket(
   }
 
   fun ensureOnProductListPage() {
+    waitForPageLoad()
     if (currentPage == 0) {
       driver.navigate().to(startURL)
       currentPage = 1
-      waitForPageLoad()
+    } else {
+      findElement(productListPageIdBy)
     }
   }
 
@@ -275,11 +268,11 @@ abstract class SeleniumProductMarket(
 }
 
 abstract class DetailedProductMarket(
-  type: ProductMarketType, productDB: ProductDB, name: String, startURL: String,
+  type: ProductMarketType, name: String, startURL: String,
   productBy: By, titleBy: By, priceBy: By,
   searchInputBy: By, searchBtnBy: By,
   nextPageBtnBy: By, productListPageIdBy: By, val productPageIdBy: By
-) : SeleniumProductMarket(type, productDB, name, startURL, productBy, titleBy, priceBy,
+) : SeleniumProductMarket(type, name, startURL, productBy, titleBy, priceBy,
   searchInputBy, searchBtnBy, nextPageBtnBy, productListPageIdBy) {
 
   open fun fetchProduct(): RawPosting? {
@@ -343,8 +336,8 @@ abstract class DetailedProductMarket(
   }
 }
 
-class Craigslist(productDB: ProductDB) : DetailedProductMarket(
-  ProductMarketType.CRAIGSLIST, productDB, "Craigslist", "https://sandiego.craigslist.org/search",
+class Craigslist : DetailedProductMarket(
+  ProductMarketType.CRAIGSLIST,"Craigslist", "https://sandiego.craigslist.org/search",
   By.className("result-title"), By.id("titletextonly"), By.className("price"),
   By.id("query"), By.className("searchbtn"), By.cssSelector(".button.next"),
   By.className("pagenum"), By.id("titletextonly")
@@ -354,8 +347,8 @@ class Craigslist(productDB: ProductDB) : DetailedProductMarket(
   }
 }
 
-class EBay(productDB: ProductDB) : DetailedProductMarket(
-  ProductMarketType.EBAY, productDB, "eBay", "https://www.ebay.com/",
+class EBay : DetailedProductMarket(
+  ProductMarketType.EBAY, "eBay", "https://www.ebay.com/",
   By.cssSelector(".s-item__link, a[itemprop=url]"), By.id("itemTitle"),
   By.cssSelector("#prcIsum, #prcIsum_bidPrice, *[itemprop=price]"),
   By.id("gh-ac"), By.id("gh-btn"), By.cssSelector("a[rel=next]"),
@@ -386,7 +379,7 @@ class EBay(productDB: ProductDB) : DetailedProductMarket(
     val elems = driver.findElements(By.cssSelector(".itemAttr td"))
 
     elems.forEach { elem ->
-      tagList.add(elem.text.toLowerCase().replace(":", ""))
+      tagList.add(elem.text.lowercase(Locale.getDefault()).replace(":", ""))
     }
 
     // Every even td is an attribute label
@@ -424,40 +417,85 @@ class EBay(productDB: ProductDB) : DetailedProductMarket(
   }
 }
 
-class NewEgg(productDB: ProductDB) : SeleniumProductMarket(
-  ProductMarketType.NEWEGG, productDB, "New Egg", "https://www.newegg.com/",
-  By.className("item-container"), By.className("item-title"), By.className("price-current"),
+class NewEgg : DetailedProductMarket(
+  ProductMarketType.NEWEGG, "New Egg", "https://www.newegg.com/",
+  By.className("item-title"), By.className("item-title"), By.className("price-current"),
   By.id("haQuickSearchBox"), By.className("search-bar-btn"),
   By.cssSelector("button[aria-label=Next]"),
-  By.id("radio_soldby")
+  By.id("radio_soldby"), By.className("product-buy-box")
 ) {
+  override fun fetchProduct(): RawPosting? {
+    val url = driver.currentUrl
+    val titleStr = findElement(titleBy)?.text ?: ""
+    val priceStr = findElement(priceBy)?.text ?: ""
+    return try {
+      val post = RawPosting(ProductMarketType.NEWEGG, url, titleStr, "", CurrencyAmount(priceStr), fetchAttrs())
+      logger.info("Post category: ${post.category}")
+      post
+    } catch (ex: Exception) {
+      ex.printStackTrace()
+      null
+    }
+  }
+
+  private fun fetchAttrs(): Map<String, String> {
+    // Open specs tabs
+    waitForPageLoad(3000)
+    click(By.xpath("//div[contains(@class, 'tab-nav'), text()='Specs']"))
+
+    val attrs = HashMap<String, String>()
+    val elems = driver.findElements(By.cssSelector("#product-details > .tab-panes .table-horizontal tr"))
+
+    elems.forEach { elem ->
+      // Elements are hidden, so .text is not functional. textContent works
+      val key = elem.findElement(By.tagName("th")).getAttribute("textContent")
+      val value = elem.findElement(By.tagName("td")).getAttribute("textContent")
+      attrs[key] = value
+    }
+
+    return attrs
+  }
+
   override fun getRandomProductListUrls(): List<String> {
     return listOf("https://www.newegg.com/todays-deals")
   }
 }
 
-class Overstock(productDB: ProductDB) : DetailedProductMarket(
-  ProductMarketType.OVERSTOCK, productDB, "Overstock.com", "https://www.overstock.com/",
-  By.className("productCardLink"), By.className("product-title"),
-  By.className("monetary-price-value"),
+class Overstock : DetailedProductMarket(
+  ProductMarketType.OVERSTOCK, "Overstock.com", "https://www.overstock.com/",
+  By.className("productCardLink"), By.cssSelector("h1[data-cy='product-title'], .product-title"),
+  By.cssSelector("#product-price-price-container, .monetary-price-value"),
   By.className("search_searchBar_de"), By.cssSelector("#headerSearchContainer button[type=submit]"),
   By.cssSelector("a[title='Next Page']"),
   By.id("top-refinements"), By.id("brand-name")
 ) {
   override fun fetchProduct(): RawPosting? {
-    val brandBy = By.cssSelector("#brand-name a")
+    val brandBy = By.cssSelector("#brand-name a, div[data-cy='brand-name'] > a")
 
     val url = driver.currentUrl
     val title = findElement(titleBy)?.text
     val priceStr = findElement(priceBy)?.text ?: ""
     val brandStr = findElement(brandBy)?.text ?: ""
-    val attrs = emptyMap<String, String>().plus(Pair("brand", brandStr))
+    val attrs = fetchAttrs().plus(Pair("brand", brandStr))
     val price = parsePrice(priceStr)
     return if (price != null && title != null) {
       RawPosting(type, url, title, "", price, attrs)
     } else {
       null
     }
+  }
+
+  private fun fetchAttrs(): Map<String, String> {
+    val attrs = HashMap<String, String>()
+    val elems = driver.findElements(By.xpath("//h3[text()='Specifications']/following-sibling::section/div/div"))
+
+    elems.forEach { elem ->
+      val key = elem.findElement(By.cssSelector("div:nth-of-type(1)")).text
+      val value = elem.findElement(By.cssSelector("div:nth-of-type(2)")).text
+      attrs[key] = value
+    }
+
+    return attrs
   }
 
   override fun parsePrice(str: String): CurrencyAmount? {
@@ -472,16 +510,24 @@ class Overstock(productDB: ProductDB) : DetailedProductMarket(
   }
 
   override fun getRandomProductListUrls(): List<String> {
-    return listOf("https://www.overstock.com/Home-Garden/Rugs/244/cat.html?TID=SALESDEALS:04:05:Rugs")
+    return listOf(
+      "https://www.overstock.com/Home-Garden/Rugs/244/cat.html?TID=SALESDEALS:04:05:Rugs",
+      "https://www.overstock.com/Home-Garden/Living-Room-Furniture/713/cat.html",
+      "https://www.overstock.com/Home-Garden/Patio-Furniture/714/cat.html",
+      "https://www.overstock.com/Home-Garden/Bedroom-Furniture/710/cat.html",
+      "https://www.overstock.com/Home-Garden/Home-Office-Furniture/712/cat.html",
+      "https://www.overstock.com/Home-Garden/Dining-Room-Bar-Furniture/711/cat.html"
+    )
   }
 }
 
-fun createMarket(ty: ProductMarketType, productDB: ProductDB): ProductMarket {
+fun createMarket(ty: ProductMarketType): ProductMarket {
   return when (ty) {
-    ProductMarketType.CRAIGSLIST -> Craigslist(productDB)
-    ProductMarketType.EBAY -> EBay(productDB)
-    ProductMarketType.NEWEGG -> NewEgg(productDB)
-    ProductMarketType.OVERSTOCK -> Overstock(productDB)
+    ProductMarketType.CRAIGSLIST -> Craigslist()
+    ProductMarketType.EBAY -> EBay()
+    ProductMarketType.NEWEGG -> NewEgg()
+    ProductMarketType.OVERSTOCK -> Overstock()
+    ProductMarketType.WALMART -> EBay() // TODO FIX
   }
 }
 

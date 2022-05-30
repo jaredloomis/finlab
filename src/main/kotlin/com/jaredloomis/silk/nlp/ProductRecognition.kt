@@ -1,6 +1,5 @@
 package com.jaredloomis.silk.nlp
 
-import com.jaredloomis.silk.db.DBModel
 import com.jaredloomis.silk.model.product.Brand
 import com.jaredloomis.silk.model.product.Product
 import com.jaredloomis.silk.model.product.ProductPosting
@@ -99,20 +98,5 @@ open class SimpleProductRecognition : ProductRecognition() {
       // Empty entries
       0.0
     }
-  }
-}
-
-class DBCachingProductRecognition(val productDB: DBModel<RawPosting, Product>, val postingDB: DBModel<Product, ProductPosting>) : SimpleProductRecognition() {
-  override fun create(posting: RawPosting): ProductPosting? {
-    val ret = super.create(posting)
-    if (ret != null) {
-      try {
-        productDB.insert(ret.product)
-        postingDB.insert(ret)
-      } catch (ex: Exception) {
-        ex.printStackTrace()
-      }
-    }
-    return ret
   }
 }

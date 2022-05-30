@@ -18,10 +18,10 @@ class Product(var canonicalName: String, var primaryBrand: Brand) {
   val prettyName: String
     get() = "${primaryBrand.name} ${modelID ?: canonicalName}"
 
-  val productID: ProductID?
+  val productKey: ProductKey?
     get() = when {
-        upc != null     -> ProductID.UPC(upc!!)
-        modelID != null -> ProductID.BrandModel(primaryBrand.name, modelID!!)
+        upc != null     -> ProductKey.UPC(upc!!)
+        modelID != null -> ProductKey.BrandModel(primaryBrand.name, modelID!!)
         else            -> null
       }
 

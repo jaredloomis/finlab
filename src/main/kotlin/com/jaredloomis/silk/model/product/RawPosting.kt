@@ -29,11 +29,16 @@ open class RawPosting(
     }
     .filter { it.value != null }
 
-  val productID: ProductID? = when {
-    upc != null -> ProductID.UPC(upc!!)
-    brand != null && model != null -> ProductID.BrandModel(brand!!, model!!)
+  val specsStr
+    get() = specs.entries.joinToString(",") { "${it.key}=${it.value}" }
+
+  val productKey: ProductKey? = when {
+    upc != null -> ProductKey.UPC(upc!!)
+    brand != null && model != null -> ProductKey.BrandModel(brand!!, model!!)
     else -> null
   }
+
+  var id: Long? = null
 
   open fun parsePrice(str: String): CurrencyAmount {
     return CurrencyAmount(str)

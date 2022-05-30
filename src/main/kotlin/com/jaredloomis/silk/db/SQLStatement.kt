@@ -1,12 +1,11 @@
 package com.jaredloomis.silk.db
 
 import com.jaredloomis.silk.util.getLogger
-import java.lang.reflect.Type
+import java.net.URL
+import java.nio.file.Files
+import java.nio.file.Path
 import java.sql.*
-import kotlin.reflect.KType
 import kotlin.reflect.full.memberProperties
-import kotlin.reflect.full.starProjectedType
-import kotlin.reflect.javaType
 import kotlin.reflect.jvm.jvmErasure
 
 /**
@@ -36,7 +35,9 @@ data class SQLStatement(val template: String) {
     // Fill in values
     variables.forEachIndexed { i, varName ->
       val prop = try {
-        if (!varName.contains('.')) {
+        if(varName == "it") {
+          Pair(model, model?.javaClass)
+        } else if (!varName.contains('.')) {
           fields[varName]!!
         } else {
           val path = varName.split('.')
@@ -59,7 +60,7 @@ data class SQLStatement(val template: String) {
           Int::class    -> Types.INTEGER
           Long::class   -> Types.BIGINT
           Date::class   -> Types.DATE
-          else          -> throw Exception("Unrecognized type (${prop.second}) referenced in a SQL template:\n$template\nmodel: $model")
+          else          -> Types.VARCHAR //throw Exception("Unrecognized type (${prop.second}) referenced in a SQL template:\n$template\nmodel: $model")
         }
         stmt.setNull(i+1, propType)
       } else {
@@ -69,7 +70,7 @@ data class SQLStatement(val template: String) {
           is Int    -> stmt.setInt(i+1, prop.first as Int)
           is Long   -> stmt.setLong(i+1, prop.first as Long)
           is Date   -> stmt.setDate(i+1, prop.first as Date)
-          else      -> throw Exception("Unrecognized type referenced in a SQL template:\n$template\nmodel: $model")
+          else      -> stmt.setString(i+1, prop.first.toString()) // throw Exception("Unrecognized type (${prop.first?.javaClass}) referenced in a SQL template:\n$template\nmodel: $model")
         }
       }
     }
@@ -78,21 +79,28 @@ data class SQLStatement(val template: String) {
   }
 }
 
+sealed class SQLSource {
+  data class Resource(val url: URL) : SQLSource()
+  data class File(val path: Path) : SQLSource()
+  data class Text(val text: String) : SQLSource()
+
+  companion object {
+    fun toSQL(src: SQLSource): String {
+      return when (src) {
+        is Resource -> src.url.readText()
+        is File -> Files.readString(src.path)
+        is Text -> src.text
+      }
+    }
+  }
+}
+
 fun reflectToMap(obj: Any): Map<String, Pair<Any?, Class<*>>> {
   val map: MutableMap<String, Pair<Any?, Class<*>>> = HashMap()
-  /*
-  for (field in obj.javaClass.declaredFields) {
-    field.isAccessible = true
-    try {
-      map[field.name] = Pair(field[obj], field.type)
-    } catch (e: Exception) {
-    }
-  }*/
   for (field in obj::class.memberProperties) {
     try {
       val v = field.call(obj)
-      field.returnType.jvmErasure.java
-      map[field.name] = Pair(v, /*if(v == null) null else v::class.java*/ field.returnType.jvmErasure.java)
+      map[field.name] = Pair(v, field.returnType.jvmErasure.java)
     } catch (e: Exception) {
       e.printStackTrace()
     }

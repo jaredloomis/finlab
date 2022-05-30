@@ -7,3 +7,13 @@ fun retry(n: Int, f: () -> Unit) {
     } catch (ex: Throwable) { }
   }
 }
+
+fun <T> printExceptions(f: () -> T): T? {
+  return try {
+    f()
+  } catch(ex: Exception) {
+    System.err.println("PRINTING CAUGHT EXCEPTION:")
+    ex.printStackTrace()
+    null
+  }
+}

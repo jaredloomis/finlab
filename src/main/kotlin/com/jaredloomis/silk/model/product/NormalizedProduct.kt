@@ -7,10 +7,10 @@ class NormalizedProduct {
 
   var category: String? = null
 
-  val id: ProductID?
+  val key: ProductKey?
     get() =
-      if(upc != null)                         ProductID.UPC(upc!!)
-      else if(brand != null && model != null) ProductID.BrandModel(brand!!, model!!)
+      if(upc != null)                         ProductKey.UPC(upc!!)
+      else if(brand != null && model != null) ProductKey.BrandModel(brand!!, model!!)
       else                                    null
 
   constructor(brand: String, model: String) {
