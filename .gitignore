@@ -1,2 +1,6 @@
 *.class
 credentials.properties
+
+# Added by cargo
+
+/target

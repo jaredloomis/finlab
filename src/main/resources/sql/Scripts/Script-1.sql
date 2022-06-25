@@ -1,1 +1,0 @@
-delete from postings where product is NULL;
