@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Usually connects to a new server
+# TODO better implementation
+nordvpn disconnect
+nordvpn connect

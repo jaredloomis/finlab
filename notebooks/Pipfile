@@ -19,6 +19,10 @@ plotly = "*"
 yfinance = "*"
 ta = "*"
 pymongo = "*"
+beautifulsoup4 = "*"
+finnhub-python = "*"
+xgboost = "*"
+pathos = "*"
 
 [dev-packages]
 

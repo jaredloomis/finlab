@@ -24,6 +24,8 @@ class TechnicalSignals():
 		signals = pd.DataFrame()
 		# TODO vary features based on predict_window
 		# Technical indicators
+		# Mostly momentum indicators
+		signals["rsi5"] = ta.momentum.RSIIndicator(data["close"], window=5).rsi()
 		signals["rsi7"] = ta.momentum.RSIIndicator(data["close"], window=7).rsi()
 		signals["rsi14"] = ta.momentum.RSIIndicator(data["close"], window=14).rsi()
 		signals["rsi30"] = ta.momentum.RSIIndicator(data["close"], window=30).rsi()
@@ -36,6 +38,24 @@ class TechnicalSignals():
 		signals["bollinger_high"] = bollinger.bollinger_hband()
 		signals["bollinger_low"] = bollinger.bollinger_lband()
 		signals["bollinger_avg"] = bollinger.bollinger_mavg()
+		# Trend indicators
+		adx = ta.trend.ADXIndicator(data["high"], data["low"], data["close"])
+		signals["adx"] = adx.adx()
+		signals["adx_neg"] = adx.adx_neg()
+		signals["adx_pos"] = adx.adx_pos()
+		aroon = ta.trend.AroonIndicator(data["close"])
+		signals["aroon_down"] = aroon.aroon_down()
+		signals["aroon_indicator"] = aroon.aroon_indicator()
+		signals["aroon_up"] = aroon.aroon_up()
+		signals["cci"] = ta.trend.CCIIndicator(data["high"], data["low"], data["close"]).cci()
+		kst = ta.trend.KSTIndicator(data["close"])
+		signals["kst"] = kst.kst()
+		signals["kst_diff"] = kst.kst_diff()
+		signals["kst_sig"] = kst.kst_sig()
+		macd = ta.trend.MACD(data["close"])
+		signals["macd"] = macd.macd()
+		signals["macd_diff"] = macd.macd_diff()
+		signals["macd_signal"] = macd.macd_signal()
 		# % change history
 		signals["pchange_-1day"] = percent_change(data, window=-1)
 		signals["pchange_-2day"] = percent_change(data, window=-2)
@@ -55,6 +75,7 @@ class TechnicalSignals():
 		self.signals = signals
 
 	def toX(self):
+		# TODO DONT SCALE ONE-HOT VARIABLES
 		# Compute associated dates
 		date = self.date[(~self.signals.isna()).any(axis=1).index]
 		# Remove label, remove rows with nans, to numpy
@@ -65,6 +86,7 @@ class TechnicalSignals():
 		return X, date
 
 	def toXy(self):
+		# TODO DONT SCALE ONE-HOT VARIABLES
 		# Compute associated dates
 		date = self.date[(~self.signals.isna()).any(axis=1).index]
 		# Remove nans
