@@ -23,6 +23,7 @@ beautifulsoup4 = "*"
 finnhub-python = "*"
 xgboost = "*"
 pathos = "*"
+pandas-datareader = "*"
 
 [dev-packages]
 
