@@ -1,5 +1,13 @@
 *.class
 credentials.properties
+.gradle/
+.idea/
+.ipynb_checkpoints/
+build/
+node_modules/
+gradlew
+gradlew.bat
+logs/
 
 # Added by cargo
 
