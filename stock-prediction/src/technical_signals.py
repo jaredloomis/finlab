@@ -104,12 +104,6 @@ def label_key(predict_window):
 
 
 def percent_change(data, window=1, track_feature="close"):
-    """
-    Note: Includes a single nan at the beginning of output.
-    """
-    # if window < 0:
-    # 	return data[track_feature].pct_change(periods=-window) * 100
-    # else:
     if window < 0:
         return -(
             data[track_feature].diff(periods=window) / data[track_feature] * 100

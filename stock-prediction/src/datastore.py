@@ -1,13 +1,17 @@
 import numpy as np
 import pandas as pd
-import yfinance as yf
-import pandas_datareader as pdr
+import time
+import datetime
+
 import pymongo
 from pymongo import MongoClient
 from pymongo.errors import BulkWriteError, DuplicateKeyError
-from datetime import datetime
+import yfinance as yf
+import pandas_datareader as pdr
 import finnhub
-import time
+
+from prediction import Prediction
+import util
 
 finnhub_client = finnhub.Client(api_key="cas9okqad3ifjkt0rcq0")
 
@@ -60,6 +64,9 @@ def get_latest_price(tickers):
 
 
 def get_daily_candlesticks(tickers, start_date, end_date):
+    start_date = util.normalize_datetime(start_date)
+    end_date = util.normalize_datetime(end_date)
+    
     mongo = mongo_client()
     db = mongo.stock_analysis
 
@@ -71,8 +78,8 @@ def get_daily_candlesticks(tickers, start_date, end_date):
             {
                 "symbol": {"$eq": ticker},
                 "date": {
-                    "$gt": datetime.fromisoformat(start_date),
-                    "$lt": datetime.fromisoformat(end_date),
+                    "$gt": start_date,
+                    "$lt": end_date,
                 },
             }
         )
@@ -169,7 +176,7 @@ def download_company_profiles(tickers):
     for ticker in tickers:
         try:
             profile = finnhub_client.company_profile2(symbol=ticker)
-            profile["date"] = datetime.now()
+            profile["date"] = datetime.datetime.now()
             db.company_profiles.insert_one(profile)
             print(f"Inserted profile for {ticker}")
         except finnhub.FinnhubAPIException:
@@ -190,8 +197,8 @@ def download_financials_reported(tickers, freq="quarterly", **kwargs):
             )
             for entry in financials["data"]:
                 try:
-                    entry["startDate"] = datetime.fromisoformat(entry["startDate"])
-                    entry["endDate"] = datetime.fromisoformat(entry["endDate"])
+                    entry["startDate"] = util.normalize_datetime(entry["startDate"])
+                    entry["endDate"] = util.normalize_datetime(entry["endDate"])
                     db.financials_reported.insert_one(entry)
                 except DuplicateKeyError as ex:
                     pass
@@ -201,18 +208,18 @@ def download_financials_reported(tickers, freq="quarterly", **kwargs):
             time.sleep(60)
         except ConnectionError:
             time.sleep(10)
+    
+    mongo.close()
 
 
 def get_financials_reported(tickers, start_date, end_date):
+    start_date = util.normalize_datetime(start_date)
+    end_date = util.normalize_datetime(end_date)
+
     mongo = mongo_client()
     db = mongo.stock_analysis
 
     ret = {}
-
-    if isinstance(start_date, str):
-        start_date = datetime.fromisoformat(start_date)
-    if isinstance(end_date, str):
-        end_date = datetime.fromisoformat(end_date)
 
     for ticker in tickers:
         # Pull all samples within range
@@ -231,6 +238,9 @@ def get_financials_reported(tickers, start_date, end_date):
     return ret
 
 def get_latest_financials_reported(tickers, start_date, end_date, n_latest=1):
+    start_date = util.normalize_datetime(start_date)
+    end_date = util.normalize_datetime(end_date)
+
     mongo = mongo_client()
     db = mongo.stock_analysis
 
@@ -241,7 +251,7 @@ def get_latest_financials_reported(tickers, start_date, end_date, n_latest=1):
         cur = db.financials_reported.find(
             {
                 'symbol': { '$eq': ticker },
-                'startDate': { '$gt': datetime.fromisoformat(start_date), '$lt': datetime.fromisoformat(end_date) }
+                'startDate': { '$gt': start_date, '$lt': end_date }
             }
         ).sort("startDate", pymongo.ASCENDING).limit(n_latest)
         data = pd.DataFrame([sample for sample in cur])
@@ -251,3 +261,41 @@ def get_latest_financials_reported(tickers, start_date, end_date, n_latest=1):
 
     return ret
 
+def save_predictions(predictions):
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+
+    for prediction in predictions:
+        try:
+            db.model_predictions.insert_one(prediction.asdict())
+        except DuplicateKeyError as ex:
+            pass
+    
+    mongo.close()
+
+def get_predictions(tickers, start_date, end_date):
+    start_date = util.normalize_datetime(start_date)
+    end_date = util.normalize_datetime(end_date)
+
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+
+    ret = {}
+
+    for ticker in tickers:
+        # Pull latest samples
+        cur = db.model_predictions.find(
+            {
+                'ticker': { '$eq': ticker },
+                'predict_from_date': { '$gt': start_date, '$lt': end_date }
+            }
+        ).sort("predict_from_date", pymongo.ASCENDING)
+        predictions = []
+        for sample in cur:
+            del sample["_id"]
+            predictions.append(Prediction(**sample))
+        ret[ticker] = predictions
+
+    mongo.close()
+
+    return ret

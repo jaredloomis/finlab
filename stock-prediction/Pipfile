@@ -9,10 +9,7 @@ numpy = "*"
 pandas = "*"
 seaborn = "*"
 matplotlib = "*"
-# Must be installed gloablly
-#pytorch = "*"
 torch = {version = "==1.11.0", file = "https://download.pytorch.org/whl/cu115/torch-1.11.0%2Bcu115-cp310-cp310-linux_x86_64.whl"}
-imagen-pytorch = "*"
 psycopg2 = "*"
 scikit-learn = "*"
 plotly = "*"
@@ -22,8 +19,9 @@ pymongo = "*"
 beautifulsoup4 = "*"
 finnhub-python = "*"
 xgboost = "*"
-pathos = "*"
 pandas-datareader = "*"
+flask = "*"
+python-dateutil = "*"
 
 [dev-packages]
 
