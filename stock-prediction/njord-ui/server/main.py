@@ -19,6 +19,25 @@ def predictions():
     preds_dicts = {k: [p.asdict() for p in ps] for k, ps in preds.items()}
     return preds_dicts
 
+@app.route('/api/daily_candlesticks', methods=['GET'])
+def daily_candlesticks():
+    tickers = request.args['tickers'].split(',')
+    start_date = request.args['startDate']
+    end_date = request.args['endDate']
+    candles = ds.get_daily_candlesticks(tickers, start_date, end_date)
+    candles_dicts = {}
+    for k, c in candles.items():
+        # XXX TMP STRIPPING OFF TIME INFO FROM DATETIME, converting to string (?)
+        if 'date' in c:
+            c['date'] = c['date'].dt.strftime('%Y-%m-%d')
+        columns = list(c)
+        try:
+            columns.remove("_id")
+        except:
+            pass
+        candles_dicts[k] = c[columns].to_dict(orient='list')
+    return candles_dicts
+
 # / -> index.html
 @app.route('/')
 def root():

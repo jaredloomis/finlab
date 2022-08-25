@@ -44,14 +44,15 @@ def predict_price_change(model, mk_signal_set, tickers, predict_from_date=None, 
 
     predictions = {}
     for ticker in tickers:
-        #try:
+        try:
             #print(candles)
             signals = mk_signal_set(candles[ticker])
             X, y, _ = signals.to_xy()
             y_pred = model(X[-1, :])
 
             predictions[ticker] = Prediction(model.id, date.today(), predict_from_date, model.window, ticker, y_pred)
-        #except Exception as ex:
-        #    predictions[ticker] = ex
+        except Exception as ex:
+            print('Exception on', ticker)
+            util.print_exception(ex)
 
     return predictions

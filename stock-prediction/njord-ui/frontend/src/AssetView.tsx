@@ -9,6 +9,7 @@ interface AssetViewProps {
 
 export default function AssetView({ ticker }: AssetViewProps) {
   const [predictions, setPredictions] = useState({} as any);
+  const [candlesticks, setCandlesticks] = useState({} as any);
 
   useEffect(() => {
     const earliestDate = new Date("2020-01-01");
@@ -16,41 +17,57 @@ export default function AssetView({ ticker }: AssetViewProps) {
     fetch(`/api/predictions?tickers=${ticker}&startDate=${encodeURIComponent(earliestDate.toISOString())}&endDate=${encodeURIComponent(today.toISOString())}`)
       .then(response => response.json())
       .then(json => setPredictions(json));
+    fetch(`/api/daily_candlesticks?tickers=${ticker}&startDate=${encodeURIComponent(earliestDate.toISOString())}&endDate=${encodeURIComponent(today.toISOString())}`)
+      .then(response => response.json())
+      .then(json => { setCandlesticks(json); return json; });
   }, [ticker]);
 
   return <div className="asset-view">
     <h1>{ticker}</h1>
     <div>
-      <h2>Predictions</h2>
       <div className="asset-predictions">
-        {predictions[ticker] && predictions[ticker].map((pred: any) => <>
-          <p>
+        {predictions[ticker] && predictions[ticker].map((pred: any) =>
+          <p key={pred["predict_from_date"]}>
             {pred["window"]}-day prediction
             starting from {new Date(pred["predict_from_date"]).toLocaleDateString()}:<br/>
-            <span className="asset-model-prediction">{pred.prediction[0]}</span>
+            <span className={"asset-model-prediction asset-model-prediction-" + (pred.prediction[0] > 0 ? "pos" : "neg")}>
+              {(pred.prediction[0] * 100).toFixed(2)}
+            </span>
           </p>
-          <code>{JSON.stringify(pred)}</code>
-        </>)}
+        )}
         {predictions[ticker] && predictions[ticker].length !== 0 || "No predictions found!"}
       </div>
-      <h2>Charts</h2>
       <div className="asset-charts">
-      <Plot
-        data={[
-          {
-            x: predictions[ticker] && predictions[ticker].map((pred: any) => new Date(pred["predict_from_date"])),
-            y: predictions[ticker] && predictions[ticker].map((pred: any) => pred["prediction"][0]),
-            type: 'scatter',
-            //mode: 'lines+markers',
-            //marker: {color: 'red'},
-          }
-        ]}
-
-        layout={ {width: 320, height: 240, title: 'A Fancy Plot'} }
-
-        />
+        <Plot
+          data={[
+            {
+              x: candlesticks[ticker] && candlesticks[ticker]["date"] &&
+                 candlesticks[ticker]["date"].map((d: any) => new Date(d)),
+              y: candlesticks[ticker] && candlesticks[ticker]["open"],
+              type: 'scattergl',
+              mode: 'lines',
+              marker: {color: 'blue'},
+            }
+          ]}
+          layout={{
+            title: 'Price',
+            }} />
+        <Plot
+          data={[
+            {
+              x: predictions[ticker] && predictions[ticker].map((pred: any) => new Date(pred["predict_from_date"])),
+              y: predictions[ticker] && predictions[ticker].map((pred: any) => pred.prediction[0] * 100),
+              type: 'scattergl',
+              mode: 'lines+markers',
+              marker: {color: 'blue'},
+            }
+          ]}
+          layout={{
+            //width: 320, height: 240,
+            //responsive: true,
+            title: 'Predictions History'
+            }} />
       </div>
-      <h2>Fundamentals</h2>
       <div className="asset-fundamentals"></div>
     </div>
   </div>;

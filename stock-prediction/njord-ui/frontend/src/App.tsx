@@ -4,7 +4,8 @@ import './App.css';
 import AssetView from './AssetView';
 
 function App() {
-  const [ticker, setTicker] = useState("");
+  const [ticker, _setTicker] = useState("");
+  const setTicker: (t: any) => void = (ticker: any) => _setTicker(ticker.toUpperCase());
   return <div className="App-wrapper">
     <div>
       <input type="text" onChange={e => setTicker(e.target.value)} />

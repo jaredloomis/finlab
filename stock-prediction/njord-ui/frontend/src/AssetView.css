@@ -1,4 +1,15 @@
 .asset-model-prediction {
     font-weight: bold;
     font-size: large;
+    margin: 0.5em;
+}
+
+.asset-model-prediction-pos {
+    color: white;
+    background-color: green;
+}
+
+.asset-model-prediction-neg {
+    color: white;
+    background-color: red;
 }
