@@ -8,6 +8,8 @@ node_modules/
 gradlew
 gradlew.bat
 logs/
+gradle/
+usfundamentals.com/
 
 # Added by cargo
 
