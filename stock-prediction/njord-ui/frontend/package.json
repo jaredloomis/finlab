@@ -10,6 +10,7 @@
     "@testing-library/react": "^13.3.0",
     "@testing-library/user-event": "^13.5.0",
     "@types/jest": "^27.5.2",
+    "@types/luxon": "^3.0.0",
     "@types/node": "^16.11.55",
     "@types/react": "^18.0.17",
     "@types/react-dom": "^18.0.6",
@@ -35,7 +36,10 @@
     "jest": "^27.4.3",
     "jest-resolve": "^27.4.2",
     "jest-watch-typeahead": "^1.0.0",
+    "luxon": "^3.0.1",
     "mini-css-extract-plugin": "^2.4.5",
+    "mobx": "^6.6.1",
+    "mobx-react-lite": "^3.4.0",
     "plotly.js": "^2.14.0",
     "postcss": "^8.4.4",
     "postcss-flexbugs-fixes": "^5.0.2",
@@ -49,6 +53,7 @@
     "react-dom": "^18.2.0",
     "react-plotly.js": "^2.5.1",
     "react-refresh": "^0.11.0",
+    "react-router-dom": "^6.3.0",
     "resolve": "^1.20.0",
     "resolve-url-loader": "^4.0.0",
     "sass-loader": "^12.3.0",
@@ -90,6 +95,7 @@
   "devDependencies": {
     "@types/plotly.js": "^2.12.2",
     "@types/react-plotly.js": "^2.5.1",
+    "@types/react-router-dom": "^5.3.3",
     "webpack-cli": "^4.10.0"
   },
   "jest": {

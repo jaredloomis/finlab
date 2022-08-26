@@ -4,12 +4,12 @@
     margin: 0.5em;
 }
 
-.asset-model-prediction-pos {
+.prediction-pos {
     color: white;
     background-color: green;
 }
 
-.asset-model-prediction-neg {
+.prediction-neg {
     color: white;
     background-color: red;
 }

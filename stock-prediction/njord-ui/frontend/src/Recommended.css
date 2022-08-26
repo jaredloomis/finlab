@@ -1,0 +1,15 @@
+.Recommended-container {
+    /*width: 50%;*/
+}
+
+/* TODO should be CSS grid, or a react library */
+.Recommended-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.Recommended-list > * {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+}

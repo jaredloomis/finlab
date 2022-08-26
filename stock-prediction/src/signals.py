@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import ta
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.preprocessing import OneHotEncoder
 
 
@@ -22,8 +22,8 @@ class SignalSet:
             self.signals = signals_df
         self.label_keys = label_keys
 
-        self.X_scaler = StandardScaler()
-        self.y_scaler = StandardScaler()
+        self.X_scaler = RobustScaler() #StandardScaler()
+        self.y_scaler = RobustScaler() #StandardScaler()
 
     def to_x(self):
         X, y, date = self.to_xy()

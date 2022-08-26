@@ -78,8 +78,8 @@ def get_daily_candlesticks(tickers, start_date, end_date):
             {
                 "symbol": {"$eq": ticker},
                 "date": {
-                    "$gt": start_date,
-                    "$lt": end_date,
+                    "$gte": start_date,
+                    "$lte": end_date,
                 },
             }
         )
@@ -131,6 +131,15 @@ def download_daily_candlesticks(tickers, start_date, end_date):
             print(f"Error downloading daily candlesticks for {ticker}:")
             print(ex)
 
+    mongo.close()
+
+def delete_all_daily_candlesticks(ticker):
+    """
+    Deletes ALL daily candlesticks for a given ticker. CANNOT BE UNDONE.
+    """
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+    db.daily_samples.delete_many({ 'symbol': { '$eq': ticker } })
     mongo.close()
 
 
@@ -227,7 +236,7 @@ def get_financials_reported(tickers, start_date, end_date):
         cur = db.financials_reported.find(
             {
                 'symbol': { '$eq': ticker },
-                'startDate': { '$gt': start_date, '$lt': end_date }
+                'startDate': { '$gte': start_date, '$lte': end_date }
             }
         )
         data = pd.DataFrame([sample for sample in cur])
@@ -251,7 +260,7 @@ def get_latest_financials_reported(tickers, start_date, end_date, n_latest=1):
         cur = db.financials_reported.find(
             {
                 'symbol': { '$eq': ticker },
-                'startDate': { '$gt': start_date, '$lt': end_date }
+                'startDate': { '$gte': start_date, '$lte': end_date }
             }
         ).sort("startDate", pymongo.ASCENDING).limit(n_latest)
         data = pd.DataFrame([sample for sample in cur])
@@ -274,6 +283,9 @@ def save_predictions(predictions):
     mongo.close()
 
 def get_predictions(tickers, start_date, end_date):
+    """
+    :returns { [ticker]: [Prediction] }
+    """
     start_date = util.normalize_datetime(start_date)
     end_date = util.normalize_datetime(end_date)
 
@@ -283,13 +295,12 @@ def get_predictions(tickers, start_date, end_date):
     ret = {}
 
     for ticker in tickers:
+        query = {
+            'ticker': { '$eq': ticker },
+            'predict_from_date': { '$gte': start_date, '$lte': end_date }
+        }
         # Pull latest samples
-        cur = db.model_predictions.find(
-            {
-                'ticker': { '$eq': ticker },
-                'predict_from_date': { '$gt': start_date, '$lt': end_date }
-            }
-        ).sort("predict_from_date", pymongo.ASCENDING)
+        cur = db.model_predictions.find(query).sort("predict_from_date", pymongo.ASCENDING)
         predictions = []
         for sample in cur:
             del sample["_id"]
@@ -299,3 +310,24 @@ def get_predictions(tickers, start_date, end_date):
     mongo.close()
 
     return ret
+
+def get_all_predictions(start_date, end_date):
+    """
+    :returns [Prediction]
+    """
+    start_date = util.normalize_datetime(start_date)
+    end_date = util.normalize_datetime(end_date)
+
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+
+    query = {
+        'predict_from_date': { '$gte': start_date, '$lte': end_date }
+    }
+    cur = db.model_predictions.find(query).sort("predict_from_date", pymongo.ASCENDING)
+    predictions = []
+    for sample in cur:
+        del sample["_id"]
+        predictions.append(Prediction(**sample))
+    
+    return predictions
