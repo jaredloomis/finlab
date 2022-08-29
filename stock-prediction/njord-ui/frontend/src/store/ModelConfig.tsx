@@ -1,13 +1,15 @@
 import { makeAutoObservable } from "mobx";
 
 class ModelConfig {
-  modelName?: string;
+  modelId?: string;
 
   constructor() {
     makeAutoObservable(this);
   }
 
-  setModelName(modelName: string) {
-    this.modelName = modelName;
+  setModelId = (modelId: string) => {
+    this.modelId = modelId;
   }
 }
+
+export default ModelConfig;

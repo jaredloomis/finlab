@@ -68,7 +68,7 @@ def comprehensive_backtest(
                     f"{len(actions)} buy/sells performed - {len(actions) / len(data.index) * 100}% of the time"
                 )
                 print(f"Stock price change: {price_change}%")
-                print(f"Total gain/loss: {gain_loss}%")
+                #print(f"Total gain/loss: {gain_loss}%")
                 print(f"ROI: {roi * 100}%")
                 print(final_result)
 

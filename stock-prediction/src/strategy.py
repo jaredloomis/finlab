@@ -25,8 +25,9 @@ class PretrainedModelStrategy(Strategy):
     
     def execute(self, df):
         # Predict
-        X, _y, _Xy_date = self.df_to_signal_set(df).to_xy()
-        y_predicted = self.predict(X[-1, :].reshape(1, -1))[-1]
+        signals = self.df_to_signal_set(df)
+        X, _y, _Xy_date = signals.to_xy()
+        y_predicted = signals.y_scaler.inverse_transform(self.predict(X[-1, :].reshape(1, -1)))[-1, 0]
         # Decide on action
         date = df["date"].to_numpy()[-1]
         share_count = self.share_count(y_predicted)
@@ -37,7 +38,7 @@ class PretrainedModelStrategy(Strategy):
         return None
 
     def share_count(self, prediction):
-        return abs(math.floor(prediction * 5))
+        return abs(math.floor(prediction))
 
 class SignalModelStrategy(Strategy):
     def __init__(

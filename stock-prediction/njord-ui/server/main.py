@@ -10,6 +10,13 @@ import util
 
 app = Flask(__name__, static_folder='../frontend/build/static')
 
+@app.route('/api/model_ids', methods=['GET'])
+def model_ids():
+    """
+    :returns list of all model ids
+    """
+    return ds.get_model_ids()
+
 @app.route('/api/predictions', methods=['GET'])
 def predictions():
     """
@@ -20,12 +27,13 @@ def predictions():
         tickers = tickers.split(',')
     start_date = request.args['startDate']
     end_date = request.args['endDate']
+    model_id = request.args.get('model_id')
 
     if tickers is not None:
-        preds = ds.get_predictions(tickers, start_date, end_date)
+        preds = ds.get_predictions(tickers, start_date, end_date, model_id=model_id)
         return {k: [p.asdict() for p in ps] for k, ps in preds.items()}
     else:
-        preds = ds.get_all_predictions(start_date, end_date)
+        preds = ds.get_all_predictions(start_date, end_date, model_id=model_id)
         return [p.asdict() for p in preds]
 
 @app.route('/api/daily_candlesticks', methods=['GET'])

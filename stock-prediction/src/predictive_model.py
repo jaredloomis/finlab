@@ -39,7 +39,7 @@ class PredictiveModel():
 
     @staticmethod
     def load(state_dict_file, model):
-        name, window, created_date = state_dict_file.split('.')[0].split('|')
+        name, window, created_date = os.path.splitext(state_dict_file)[0].split('|')
         model.load_state_dict(torch.load(MODEL_DIR + "/" + state_dict_file))
         model.eval()
         return PredictiveModel(model, name, window, created_date)

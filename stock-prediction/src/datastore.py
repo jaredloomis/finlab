@@ -282,7 +282,7 @@ def save_predictions(predictions):
     
     mongo.close()
 
-def get_predictions(tickers, start_date, end_date):
+def get_predictions(tickers, start_date, end_date, model_id=None):
     """
     :returns { [ticker]: [Prediction] }
     """
@@ -299,6 +299,8 @@ def get_predictions(tickers, start_date, end_date):
             'ticker': { '$eq': ticker },
             'predict_from_date': { '$gte': start_date, '$lte': end_date }
         }
+        if model_id is not None:
+            query['model_id'] = { '$eq': model_id }
         # Pull latest samples
         cur = db.model_predictions.find(query).sort("predict_from_date", pymongo.ASCENDING)
         predictions = []
@@ -311,7 +313,7 @@ def get_predictions(tickers, start_date, end_date):
 
     return ret
 
-def get_all_predictions(start_date, end_date):
+def get_all_predictions(start_date, end_date, model_id=None):
     """
     :returns [Prediction]
     """
@@ -324,6 +326,8 @@ def get_all_predictions(start_date, end_date):
     query = {
         'predict_from_date': { '$gte': start_date, '$lte': end_date }
     }
+    if model_id is not None:
+        query['model_id'] = { '$eq': model_id }
     cur = db.model_predictions.find(query).sort("predict_from_date", pymongo.ASCENDING)
     predictions = []
     for sample in cur:
@@ -331,3 +335,20 @@ def get_all_predictions(start_date, end_date):
         predictions.append(Prediction(**sample))
     
     return predictions
+
+def get_model_ids():
+    """
+    :returns [str]
+    """
+    start_date = util.normalize_datetime("2010-01-01")
+    end_date = util.normalize_datetime("2900-01-01")
+
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+
+    query = {
+        'predict_from_date': { '$gte': start_date, '$lte': end_date }
+    }
+    ids = db.model_predictions.find(query).distinct('model_id')
+    
+    return ids

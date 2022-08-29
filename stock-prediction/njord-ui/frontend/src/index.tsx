@@ -4,6 +4,7 @@ import './index.css';
 import AssetView from './AssetView';
 import { HashRouter, Route, Routes } from 'react-router-dom';
 import Recommended from './Recommended';
+import App from './App';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -11,10 +12,7 @@ const root = ReactDOM.createRoot(
 root.render(
   <React.StrictMode>
     <HashRouter>
-    <Routes>
-      <Route path="/" element={<Recommended />} />
-      <Route path="/ticker/:ticker" element={<AssetView />} />
-    </Routes>
+    <App/>
   </HashRouter>
   </React.StrictMode>
 );
