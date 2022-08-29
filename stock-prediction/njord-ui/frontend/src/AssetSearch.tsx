@@ -9,12 +9,12 @@ const AssetSearch = (props: AssetSearchProps) => {
   const [search, setSearch] = useState("");
 
   const submit = () => {
-    navigate(`/ticker/${search.toUpperCase()}`);
+    navigate(`/ticker/${encodeURIComponent(search.toUpperCase())}`);
   };
 
   return <div>
     <form onSubmit={submit}>
-      <input type="text" onChange={e => setSearch(e.target.value)} />
+      <input type="text" onChange={e => { e.preventDefault(); setSearch(e.target.value) }} />
     </form>
   </div>;
 }

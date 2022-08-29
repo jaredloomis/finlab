@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import time
 import datetime
+import requests
 
 import pymongo
 from pymongo import MongoClient
@@ -14,7 +15,7 @@ from prediction import Prediction
 import util
 
 finnhub_client = finnhub.Client(api_key="cas9okqad3ifjkt0rcq0")
-
+alpha_vantage_key = "B1OHE9R769FVLIYU"
 
 def mongo_client():
     """
@@ -128,8 +129,8 @@ def download_daily_candlesticks(tickers, start_date, end_date):
                     pass
                     # print(ex)
         except Exception as ex:
-            print(f"Error downloading daily candlesticks for {ticker}:")
-            print(ex)
+            print_exception(ex)
+            print(f"Error downloading daily candlesticks for {ticker}")
 
     mongo.close()
 
@@ -141,6 +142,36 @@ def delete_all_daily_candlesticks(ticker):
     db = mongo.stock_analysis
     db.daily_samples.delete_many({ 'symbol': { '$eq': ticker } })
     mongo.close()
+
+
+def download_forex_daily_candlesticks(pairs):
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+
+    for from_sym, to_sym in pairs:
+        try:
+            # Download candles
+            url = f'https://www.alphavantage.co/query?function=FX_DAILY&outputsize=full&from_symbol={from_sym}&to_symbol={to_sym}&apikey={alpha_vantage_key}'
+            json = requests.get(url).json()
+            candles = json['Time Series FX (Daily)']
+            # Transform into a list of dicts
+            candles = [{
+                'symbol': f'{from_sym}/{to_sym}',
+                'open': float(candle["1. open"]),
+                'high': float(candle["2. high"]),
+                'low': float(candle["3. low"]),
+                'close': float(candle["4. close"]),
+                'date': util.normalize_datetime(date_str)
+                } for date_str, candle in candles.items()]
+            # Store in db
+            db.daily_samples.insert_many(candles, ordered=False)
+        except Exception as ex:
+            print(f"Error downloading daily candlesticks for {from_sym}/{to_sym}. Waiting 60s.")
+            time.sleep(60)
+
+
+    mongo.close()
+        
 
 
 def get_company_profiles(tickers, only_latest=True):

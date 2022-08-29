@@ -19,16 +19,21 @@ const AssetViewCore = (props: AssetViewProps) => {
   const [candlesticks, setCandlesticks] = useState({} as any);
   const latestPred = predictions[ticker] && predictions[ticker].length !== 0 &&
                      predictions[ticker][predictions[ticker].length-1];
+  const earliestDate = new Date("2019-01-01");
+  const today = new Date();
 
+  // Fetch candlesticks
   useEffect(() => {
-    const earliestDate = new Date("2019-01-01");
-    const today = new Date();
-    fetch(`/api/predictions?tickers=${ticker}&startDate=${encodeURIComponent(earliestDate.toISOString())}&endDate=${encodeURIComponent(today.toISOString())}&model_id=${modelConfig && modelConfig.modelId}`)
-      .then(response => response.json())
-      .then(json => setPredictions(json));
     fetch(`/api/daily_candlesticks?tickers=${ticker}&startDate=${encodeURIComponent(earliestDate.toISOString())}&endDate=${encodeURIComponent(today.toISOString())}`)
       .then(response => response.json())
       .then(json => { setCandlesticks(json); return json; });
+  }, [ticker]);
+
+  // Fetch predictions
+  useEffect(() => {
+    fetch(`/api/predictions?tickers=${ticker}&startDate=${encodeURIComponent(earliestDate.toISOString())}&endDate=${encodeURIComponent(today.toISOString())}&model_id=${modelConfig && modelConfig.modelId}`)
+      .then(response => response.json())
+      .then(json => setPredictions(json));
   }, [ticker, modelConfig?.modelId]);
 
   return <div className="asset-view">
@@ -42,18 +47,6 @@ const AssetViewCore = (props: AssetViewProps) => {
             {(latestPred.prediction[0]).toFixed(4)}
           </span>
         </p>}
-        {/* TODO show expandable history of predictions.
-        {predictions[ticker] && predictions[ticker].map((pred: any) =>
-          <p key={pred["predict_from_date"]}>
-            {pred["window"]}-day prediction
-            starting from {new Date(pred["predict_from_date"]).toLocaleDateString()}:<br/>
-            <span className={"asset-model-prediction asset-model-prediction-" + (pred.prediction[0] > 0 ? "pos" : "neg")}>
-              {(pred.prediction[0] * 100).toFixed(2)}
-            </span>
-          </p>
-        )}
-        {predictions[ticker] && predictions[ticker].length !== 0 || "No predictions found!"}
-        */}
       </div>
       <div className="asset-charts">
         <Plot

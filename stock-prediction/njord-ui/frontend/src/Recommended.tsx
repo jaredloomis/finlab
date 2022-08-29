@@ -18,9 +18,16 @@ function RecommendedCore({ modelConfig }: RecommendedProps) {
   const tomorrow = DateTime.now().plus(Duration.fromObject({ days: 1 })).toISODate();
 
   useEffect(() => {
+    const alreadySeen = new Set<string>();
     // Get all predictions within the last two days
     fetch(`/api/predictions?startDate=${encodeURIComponent(yesterday)}&endDate=${encodeURIComponent(tomorrow)}&model_id=${modelConfig?.modelId}`)
       .then(response => response.json())
+      // Filter out duplicate tickers
+      .then(predictions => predictions.reverse().filter((pred: any) => {
+        if(alreadySeen.has(pred.ticker)) return false;
+        alreadySeen.add(pred.ticker);
+        return true;
+      }))
       // Sort by absolute value of `prediction`
       .then(predictions =>
         predictions.sort((a: any, b: any) => Math.abs(b.prediction[0]) - Math.abs(a.prediction[0]))
