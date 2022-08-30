@@ -22,8 +22,8 @@ class SignalSet:
             self.signals = signals_df
         self.label_keys = label_keys
 
-        self.X_scaler = RobustScaler() #StandardScaler()
-        self.y_scaler = RobustScaler() #StandardScaler()
+        self.X_scaler = StandardScaler()   # RobustScaler()
+        self.y_scaler = StandardScaler()
 
     def to_x(self):
         X, y, date = self.to_xy()

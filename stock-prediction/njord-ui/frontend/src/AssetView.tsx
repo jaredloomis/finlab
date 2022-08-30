@@ -40,9 +40,9 @@ const AssetViewCore = (props: AssetViewProps) => {
     <h1>{ticker}</h1>
     <div>
       <div className="asset-predictions">
-        {latestPred && <p>
+        {!latestPred ? "No predictions yet. Try another model." : <p>
           {latestPred["window"]}-day prediction
-           using historical data up to {new Date(latestPred["predict_from_date"]).toLocaleDateString()}:<br/>
+           using historical data up to {new Date(latestPred["predict_from_date"]).toLocaleDateString()}:
           <span className={"asset-model-prediction prediction-" + (latestPred.prediction[0] > 0 ? "pos" : "neg")}>
             {(latestPred.prediction[0]).toFixed(4)}
           </span>
@@ -60,8 +60,10 @@ const AssetViewCore = (props: AssetViewProps) => {
               marker: {color: 'blue'},
             }
           ]}
+          useResizeHandler
           layout={{
             title: 'Price',
+            autosize: true,
           }} />
         <Plot
           data={[
@@ -73,8 +75,10 @@ const AssetViewCore = (props: AssetViewProps) => {
               marker: {color: 'blue'},
             }
           ]}
+          useResizeHandler
           layout={{
-            title: 'Predictions History'
+            title: 'Predictions History',
+            autosize: true,
           }} />
       </div>
       <div className="asset-fundamentals"></div>

@@ -27,8 +27,8 @@ def predict_price_change(model, mk_signal_set, tickers, predict_from_date=None, 
         except KeyError as ex:
             print('Exception on', ticker)
             util.print_exception(ex)
-        except:
-            print('Exception on', ticker)
+        #except:
+        #    print('Exception on', ticker)
 
     return predictions
 

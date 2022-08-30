@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import "./AssetSearch.css"
+
 interface AssetSearchProps {
 }
 
@@ -13,8 +15,8 @@ const AssetSearch = (props: AssetSearchProps) => {
   };
 
   return <div>
-    <form onSubmit={submit}>
-      <input type="text" onChange={e => { e.preventDefault(); setSearch(e.target.value) }} />
+    <form onSubmit={e => { e.preventDefault(); submit(); }}>
+      <input type="text" placeholder="Ex. 'SPY'"onChange={e => setSearch(e.target.value)} />
     </form>
   </div>;
 }

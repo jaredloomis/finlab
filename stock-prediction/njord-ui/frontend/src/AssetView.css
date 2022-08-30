@@ -13,3 +13,8 @@
     color: white;
     background-color: red;
 }
+
+.asset-charts {
+    display: flex;
+    flex-wrap: wrap;
+}

@@ -25,21 +25,34 @@ class PredictiveModel():
                 return self.model.predict(X)
             except:
                 pass
-        raise "Invalid Model!"
+        raise f"Invalid Model! {type(X)}"
 
     def __call__(self, X):
         return self.predict(X)
 
     def save(self):
         if isinstance(self.model, torch.nn.Module):
+            path = MODEL_DIR + self.id + ".pt"
             pathlib.Path(MODEL_DIR).mkdir(parents=True, exist_ok=True)
-            torch.save(self.model.state_dict(), MODEL_DIR + self.id + ".pt")
+            torch.save(self.model.state_dict(), path)
+            return path
         else:
             raise "Can't save this model! Not yet implemented."
 
+    def serialize(self, model_code):
+        return {
+            'state_dict': {k: v.tolist() for k, v in self.model.state_dict().items()}, # Serialize the Tensors (numpy or lists)
+            'model_code': model_code,
+        }
+
     @staticmethod
-    def load(state_dict_file, model):
+    def from_model_id(model, model_id, **kwargs):
+        name, window, created_date = model_id.split('|')
+        return PredictiveModel(model, name, window, created_date, **kwargs)
+
+    @staticmethod
+    def load(state_dict_file, model, **kwargs):
         name, window, created_date = os.path.splitext(state_dict_file)[0].split('|')
         model.load_state_dict(torch.load(MODEL_DIR + "/" + state_dict_file))
         model.eval()
-        return PredictiveModel(model, name, window, created_date)
+        return PredictiveModel(model, name, window, created_date, **kwargs)

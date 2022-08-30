@@ -1,0 +1,17 @@
+.Nav-wrapper {
+    display: flex;
+    justify-content: space-between;
+    /* For mobile */
+    flex-wrap: wrap;
+    padding: 0.5em;
+    background-color: navy;
+}
+
+.Nav-wrapper a {
+    color: white;
+}
+
+.Nav-wrapper a:active {
+    color: white;
+}
+

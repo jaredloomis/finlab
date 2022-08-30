@@ -12,6 +12,7 @@ import pandas_datareader as pdr
 import finnhub
 
 from prediction import Prediction
+from model_env import ModelEnv
 import util
 
 finnhub_client = finnhub.Client(api_key="cas9okqad3ifjkt0rcq0")
@@ -129,7 +130,7 @@ def download_daily_candlesticks(tickers, start_date, end_date):
                     pass
                     # print(ex)
         except Exception as ex:
-            print_exception(ex)
+            util.print_exception(ex)
             print(f"Error downloading daily candlesticks for {ticker}")
 
     mongo.close()
@@ -364,6 +365,8 @@ def get_all_predictions(start_date, end_date, model_id=None):
     for sample in cur:
         del sample["_id"]
         predictions.append(Prediction(**sample))
+
+    mongo.close()
     
     return predictions
 
@@ -381,5 +384,21 @@ def get_model_ids():
         'predict_from_date': { '$gte': start_date, '$lte': end_date }
     }
     ids = db.model_predictions.find(query).distinct('model_id')
+
+    mongo.close()
     
     return ids
+
+def save_model_envs(envs):
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+    db.model_envs.insert_many(map(lambda e: e.to_dict(), envs))
+    mongo.close()
+
+def get_all_model_envs():
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+    cur = db.model_envs.find({})
+    ret = [ModelEnv.from_object(obj) for obj in cur]
+    mongo.close()
+    return ret
