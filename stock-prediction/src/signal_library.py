@@ -10,7 +10,7 @@ def signal_specs_to_signal_set(specs):
     signals = [signal_spec_to_signal(spec) for spec in specs]
 
 def signal_spec_to_signal(spec):
-    return SIGNALS[spec.type]({key: spec[key] for key in spec if key != 'type'})
+    return SIGNALS[spec['id']]({key: spec[key] for key in spec if key != 'id'})
 
 SIGNALS = {
     'rsi': lambda spec: lambda data: \

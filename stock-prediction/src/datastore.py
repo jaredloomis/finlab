@@ -302,6 +302,42 @@ def get_latest_financials_reported(tickers, start_date, end_date, n_latest=1):
 
     return ret
 
+def get_financials_reported_attrs(tickers, attrs, date):
+    date = util.normalize_datetime(date)
+
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+
+    ret = {}
+
+    for ticker in tickers:
+        # Pull all samples within range
+        # XXX TODO
+        sample = db.financials_reported.find_one(
+            {
+                'symbol': { '$eq': ticker },
+                'startDate': { '$lte': date },
+                'endDate': { '$gte': date }
+            }
+        )
+
+        ret[ticker] = {}
+        # Search through all the 'entries', and assign when we find a matching value
+        for attr in attrs:
+            attr_lower = attr.lower()
+            for category in ['bs', 'cf', 'ic']:
+                for entry in sample['report'][category]:
+                    if attr_lower in entry['concept'].lower():
+                        ret[ticker][attr] = entry['value']
+                        break
+                else:
+                    continue
+                break
+
+    mongo.close()
+
+    return ret
+
 def save_predictions(predictions):
     mongo = mongo_client()
     db = mongo.stock_analysis

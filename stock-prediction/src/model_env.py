@@ -17,6 +17,7 @@ TODO
 """
 
 import imp
+import pickle
 
 from datetime import datetime
 
@@ -43,14 +44,15 @@ class ModelEnv:
         return self.obj
 
     @staticmethod
-    def from_model(model, display_name, signals, model_code=None, scaling="standard"):
+    def from_model(model, display_name, signals, X_scaler, y_scaler, model_code=None):
         return ModelEnv({
             'model_id': model.id,
             'display_name': display_name,
             'model': model.serialize(model_code),
             'signals': signals,
-            'scaling': scaling,
-            'created': datetime.now()
+            'X_scaler': pickle.dumps(X_scaler),
+            'y_scaler': pickle.dumps(y_scaler),
+            'created': datetime.now(),
         })
 
     @staticmethod

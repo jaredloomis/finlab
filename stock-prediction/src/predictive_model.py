@@ -1,6 +1,7 @@
 import torch
 import pathlib
 import os
+import pickle
 
 MODEL_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../models/"
 
@@ -40,10 +41,13 @@ class PredictiveModel():
             raise "Can't save this model! Not yet implemented."
 
     def serialize(self, model_code):
-        return {
-            'state_dict': {k: v.tolist() for k, v in self.model.state_dict().items()}, # Serialize the Tensors (numpy or lists)
-            'model_code': model_code,
-        }
+        if isinstance(self.model, torch.nn.Module):
+            return {
+                'state_dict': {k: v.tolist() for k, v in self.model.state_dict().items()}, # Serialize the Tensors (numpy or lists)
+                'model_code': model_code,
+            }
+        else:
+            return pickle.dumps(self.model)
 
     @staticmethod
     def from_model_id(model, model_id, **kwargs):
