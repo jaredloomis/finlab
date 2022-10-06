@@ -4,6 +4,7 @@ from typing import NamedTuple, Union, Any
 
 import util
 
+
 class Prediction(NamedTuple):
     model_id: str
     created_date: Union[date, datetime, str]

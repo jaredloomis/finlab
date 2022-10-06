@@ -1,3 +1,4 @@
+"""
 import pandas as pd
 
 class FinancialsReported():
@@ -5,3 +6,4 @@ class FinancialsReported():
         self.reports = reports
 
     def as_signals():
+"""

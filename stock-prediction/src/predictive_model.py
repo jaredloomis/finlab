@@ -5,7 +5,8 @@ import pickle
 
 MODEL_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../models/"
 
-class PredictiveModel():
+
+class PredictiveModel:
     def __init__(self, model, name, window, created_date, device="cpu"):
         self.id = f"{name}|{window}|{created_date}"
         self.model = model

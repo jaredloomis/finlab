@@ -10,6 +10,7 @@ from pymongo.errors import BulkWriteError, DuplicateKeyError
 import yfinance as yf
 import pandas_datareader as pdr
 import finnhub
+from datetime import timedelta
 
 from prediction import Prediction
 from model_env import ModelEnv
@@ -243,7 +244,7 @@ def download_financials_reported(tickers, freq="quarterly", **kwargs):
                     db.financials_reported.insert_one(entry)
                 except DuplicateKeyError as ex:
                     pass
-            print(f"Inserted financials for {ticker}")
+            print(f"Inserted {len(financials['data'])} financials for {ticker}")
         except finnhub.FinnhubAPIException:
             print(f"FinnhubAPIException! on {ticker} Sleeping for one minute")
             time.sleep(60)
@@ -294,7 +295,10 @@ def get_latest_financials_reported(tickers, start_date, end_date, n_latest=1):
                 'symbol': { '$eq': ticker },
                 'startDate': { '$gte': start_date, '$lte': end_date }
             }
-        ).sort("startDate", pymongo.ASCENDING).limit(n_latest)
+        ).sort("startDate", pymongo.ASCENDING) \
+         .sort("endDate", pymongo.ASCENDING) \
+         .limit(n_latest)
+        
         data = pd.DataFrame([sample for sample in cur])
         ret[ticker] = data
 
@@ -311,30 +315,64 @@ def get_financials_reported_attrs(tickers, attrs, date):
     ret = {}
 
     for ticker in tickers:
-        # Pull all samples within range
-        # XXX TODO
-        sample = db.financials_reported.find_one(
+        # Pull the most recent sample before date
+        samples = list(db.financials_reported.find(
             {
                 'symbol': { '$eq': ticker },
                 'startDate': { '$lte': date },
-                'endDate': { '$gte': date }
+                'endDate': { '$gte': date },
             }
-        )
+        ).sort("startDate", pymongo.DESCENDING) \
+         .sort("endDate", pymongo.ASCENDING) \
+         .limit(1))
+
+        if len(samples) == 0:
+            print(f'No financials reported for {ticker}')
+            continue
+        else:
+            sample = samples[0]
 
         ret[ticker] = {}
-        # Search through all the 'entries', and assign when we find a matching value
-        for attr in attrs:
-            attr_lower = attr.lower()
-            for category in ['bs', 'cf', 'ic']:
-                for entry in sample['report'][category]:
-                    if attr_lower in entry['concept'].lower():
-                        ret[ticker][attr] = entry['value']
-                        break
-                else:
-                    continue
-                break
+        # For each attr, search through all the reports for a matching value
+        if sample is not None and sample['report'] is not None:
+            for attr in attrs:
+                for category in ['bs', 'cf', 'ic']:
+                    cat_attrs = sample['report'][category]
+                    # The schema on finnhub.io shows this format
+                    if isinstance(cat_attrs, dict):
+                        if attr in cat_attrs.keys():
+                            ret[ticker][attr] = cat_attrs[attr]
+                            break
+                    # But all (most?) samples I've found are in this format
+                    elif isinstance(cat_attrs, list):
+                        for attr_entry in cat_attrs:
+                            if attr_entry['concept'] == attr:
+                                ret[ticker][attr] = attr_entry['value']
+                                break
+                        
 
     mongo.close()
+
+    return ret
+
+def get_financials_reported_attrs_ts(tickers, attrs, start_date, end_date):
+    """
+    Get from the db a timeseries of financials reported attributes for the specified time period.
+
+    Returns:
+    dict[str, DataFrame]: a dataframe for each asset, where each column is an attribute, row key is date.
+    """
+    start_date = util.normalize_datetime(start_date)
+    end_date = util.normalize_datetime(end_date)
+
+    ret = { ticker: pd.DataFrame(columns=attrs) for ticker in tickers }
+
+    date = start_date
+    while date <= end_date:
+        day_samples = get_financials_reported_attrs(tickers, attrs, date)
+        date += timedelta(days=1)
+        for ticker, row in day_samples.items():
+            ret[ticker].loc[date] = row
 
     return ret
 

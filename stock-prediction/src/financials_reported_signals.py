@@ -2,6 +2,7 @@ import numpy as np
 from signals import Signal, SignalSet
 import datastore as ds
 
+
 class FinancialsReportedSignalSet(SignalSet):
     def __init__(self, date, reports):
         def get_concept_on_day(concept, day):

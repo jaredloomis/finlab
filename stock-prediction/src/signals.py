@@ -1,6 +1,4 @@
-import numpy as np
 import pandas as pd
-import ta
 from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.preprocessing import OneHotEncoder
 
@@ -16,8 +14,11 @@ class SignalSet:
     def __init__(self, date, signals, label_keys, signals_df=None):
         self.date = date
         if signals_df is None:
-            # Concat signals into one big DataFrame
-            self.signals = pd.DataFrame.from_dict({signal.column_name: signal.data for signal in signals})
+            if isinstance(signals, pd.DataFrame):
+                self.signals = signals
+            else:
+                # Concat signals into one big DataFrame
+                self.signals = pd.DataFrame.from_dict({signal.column_name: signal.data for signal in signals})
         else:
             self.signals = signals_df
         self.label_keys = label_keys
@@ -41,13 +42,13 @@ class SignalSet:
         #features = features.fillna(0.0)
 
         # Remove all rows containing a nan, get the associated dates
-        date = self.date[(~features.isna()).any(axis=1).index]
         features = features.dropna()
+        date = (~features.isna()).any(axis=1).index
 
         # Split into X, y
         X = features[features.columns.difference(self.label_keys)] \
                 .to_numpy()
-        y = features[self.label_keys].to_numpy() #.reshape(-1, 1)
+        y = features[self.label_keys].to_numpy()
 
         # Scale
         X = self.X_scaler.fit_transform(X)
@@ -58,7 +59,9 @@ class SignalSet:
     def concat(a, b):
         # TODO take a list[SignalSet] as argument
         # XXX HOW TO HANDLE DATE? Combine?
-        return SignalSet(b.date, None, set(a.label_keys + b.label_keys), signals_df=pd.concat([a.signals, b.signals]))
+        df = pd.merge(a.signals, b.signals, left_index=True, right_index=True)  # pd.concat([a.signals, b.signals])
+        df.sort_index(inplace=True)
+        return SignalSet(df.index, None, set(a.label_keys + b.label_keys), signals_df=df)
 
 
 class Signal:

@@ -1,10 +1,8 @@
-import numpy as np
-import pandas as pd
 import ta
-from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import OneHotEncoder
 
 from signals import Signal, SignalSet
+
 
 class TechnicalSignalSet(SignalSet):
     def __init__(self, data, predict_window):

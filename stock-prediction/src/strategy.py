@@ -1,8 +1,6 @@
 import math
 import random
 
-from sklearn.model_selection import train_test_split
-
 from backtest import Action
 from technical_signals import TechnicalSignalSet
 
@@ -13,6 +11,7 @@ class Strategy:
 
     def execute(self, df):
         return None
+
 
 class PretrainedModelStrategy(Strategy):
     def __init__(
@@ -39,6 +38,7 @@ class PretrainedModelStrategy(Strategy):
 
     def share_count(self, prediction):
         return abs(math.floor(prediction))
+
 
 class SignalModelStrategy(Strategy):
     def __init__(

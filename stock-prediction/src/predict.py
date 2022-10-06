@@ -4,6 +4,7 @@ from prediction import Prediction
 import datastore as ds
 import util
 
+
 def predict_price_change(model, mk_signal_set, tickers, predict_from_date=None, min_samples=1000):
     predict_from_date = predict_from_date if predict_from_date is not None else date.today()
     lookback_date = predict_from_date - timedelta(days=min_samples)
@@ -32,6 +33,7 @@ def predict_price_change(model, mk_signal_set, tickers, predict_from_date=None, 
 
     return predictions
 
+"""
 def predict_price_change_raw(model, signals, predict_from_date):
     try:
         if signals is not None:
@@ -49,3 +51,4 @@ def predict_price_change_raw(model, signals, predict_from_date):
         util.print_exception(ex)
     except:
         print('Exception on', ticker)
+"""
