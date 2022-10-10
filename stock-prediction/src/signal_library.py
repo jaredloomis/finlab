@@ -17,6 +17,6 @@ def signal_spec_to_signal(spec):
 
 
 SIGNALS = {
-    'rsi': lambda spec: lambda data:
+    'rsi': lambda spec, data:
         Signal("rsi14", ta.momentum.RSIIndicator(data["close"], window=14).rsi())
 }

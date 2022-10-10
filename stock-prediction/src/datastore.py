@@ -1,13 +1,14 @@
-import numpy as np
+from io import StringIO
+
 import pandas as pd
 import time
 import datetime
 import requests
+import json
 
 import pymongo
 from pymongo import MongoClient
 from pymongo.errors import BulkWriteError, DuplicateKeyError
-import yfinance as yf
 import pandas_datareader as pdr
 import finnhub
 from datetime import timedelta
@@ -16,8 +17,10 @@ from prediction import Prediction
 from model_env import ModelEnv
 import util
 
-finnhub_client = finnhub.Client(api_key="cas9okqad3ifjkt0rcq0")
+finnhub_api_key = "cas9okqad3ifjkt0rcq0"
+finnhub_client = finnhub.Client(api_key=finnhub_api_key)
 alpha_vantage_key = "B1OHE9R769FVLIYU"
+
 
 def mongo_client():
     """
@@ -66,10 +69,88 @@ def get_latest_price(tickers):
     return ret
 
 
+def download_intraday_history(tickers, interval='5min'):
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+
+    for ticker in tickers:
+        for year in [1, 2]:
+            for month in range(1, 13):
+                for retry in range(3):
+                    try:
+                        # Make request
+                        month_slice = f'year{year}month{month}'
+                        url = f'https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY_EXTENDED \
+                              &symbol={ticker}&interval={interval}&slice={month_slice}&apikey={alpha_vantage_key}' \
+                              .replace(' ', '')
+                        res = requests.get(url)
+
+                        # Check for JSON rate limit error
+                        err = None
+                        try:
+                            err = json.loads(res.text)
+                        except:
+                            pass
+                        if err is not None:
+                            print(f"Error downloading intraday_history for {ticker}. Waiting 60s.")
+                            print(err)
+                            time.sleep(60)
+
+                        # Parse CSV
+                        candles_csv = res.text
+                        candles = pd.read_csv(StringIO(candles_csv))
+                        candles = candles.assign(symbol=ticker)
+                        candles = candles.to_dict('records')
+
+                        # Store in db
+                        if len(candles) > 0:
+                            db[f'candles_{interval}'].insert_many(candles, ordered=False)
+                        break
+                    except pymongo.errors.BulkWriteError:
+                        continue
+                    except Exception as ex:
+                        # For any unknown error, print and wait 60s to try again
+                        util.print_exception(ex)
+                        print(f"Error downloading intraday_history for {ticker}. Waiting 60s.")
+                        time.sleep(60)
+
+
+def download_last_price_updates(tickers):
+    import websocket
+
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+
+    def on_message(ws, message):
+        try:
+            message = json.loads(message)
+            db.ticks.insert_many(message['data'])
+        except Exception as ex:
+            util.print_exception(ex)
+
+    def on_error(ws, error):
+        print(error)
+
+    def on_close(ws):
+        print("### closed ###")
+
+    def on_open(ws):
+        for ticker in tickers:
+            ws.send('{"type":"subscribe","symbol":"' + ticker + '"}')
+
+    websocket.enableTrace(True)
+    ws = websocket.WebSocketApp("wss://ws.finnhub.io?token=" + finnhub_api_key,
+                                on_message=on_message,
+                                on_error=on_error,
+                                on_close=on_close)
+    ws.on_open = on_open
+    ws.run_forever()
+
+
 def get_daily_candlesticks(tickers, start_date, end_date):
     start_date = util.normalize_datetime(start_date)
     end_date = util.normalize_datetime(end_date)
-    
+
     mongo = mongo_client()
     db = mongo.stock_analysis
 
@@ -136,13 +217,14 @@ def download_daily_candlesticks(tickers, start_date, end_date):
 
     mongo.close()
 
+
 def delete_all_daily_candlesticks(ticker):
     """
     Deletes ALL daily candlesticks for a given ticker. CANNOT BE UNDONE.
     """
     mongo = mongo_client()
     db = mongo.stock_analysis
-    db.daily_samples.delete_many({ 'symbol': { '$eq': ticker } })
+    db.daily_samples.delete_many({'symbol': {'$eq': ticker}})
     mongo.close()
 
 
@@ -164,16 +246,14 @@ def download_forex_daily_candlesticks(pairs):
                 'low': float(candle["3. low"]),
                 'close': float(candle["4. close"]),
                 'date': util.normalize_datetime(date_str)
-                } for date_str, candle in candles.items()]
+            } for date_str, candle in candles.items()]
             # Store in db
             db.daily_samples.insert_many(candles, ordered=False)
         except Exception as ex:
             print(f"Error downloading daily candlesticks for {from_sym}/{to_sym}. Waiting 60s.")
             time.sleep(60)
 
-
     mongo.close()
-        
 
 
 def get_company_profiles(tickers, only_latest=True):
@@ -250,7 +330,7 @@ def download_financials_reported(tickers, freq="quarterly", **kwargs):
             time.sleep(60)
         except ConnectionError:
             time.sleep(10)
-    
+
     mongo.close()
 
 
@@ -268,8 +348,8 @@ def get_financials_reported(tickers, start_date, end_date):
         # XXX TODO
         cur = db.financials_reported.find(
             {
-                'symbol': { '$eq': ticker },
-                'startDate': { '$gte': start_date, '$lte': end_date }
+                'symbol': {'$eq': ticker},
+                'startDate': {'$gte': start_date, '$lte': end_date}
             }
         )
         data = pd.DataFrame([sample for sample in cur])
@@ -278,6 +358,7 @@ def get_financials_reported(tickers, start_date, end_date):
     mongo.close()
 
     return ret
+
 
 def get_latest_financials_reported(tickers, start_date, end_date, n_latest=1):
     start_date = util.normalize_datetime(start_date)
@@ -292,19 +373,20 @@ def get_latest_financials_reported(tickers, start_date, end_date, n_latest=1):
         # Pull latest samples
         cur = db.financials_reported.find(
             {
-                'symbol': { '$eq': ticker },
-                'startDate': { '$gte': start_date, '$lte': end_date }
+                'symbol': {'$eq': ticker},
+                'startDate': {'$gte': start_date, '$lte': end_date}
             }
         ).sort("startDate", pymongo.ASCENDING) \
-         .sort("endDate", pymongo.ASCENDING) \
-         .limit(n_latest)
-        
+            .sort("endDate", pymongo.ASCENDING) \
+            .limit(n_latest)
+
         data = pd.DataFrame([sample for sample in cur])
         ret[ticker] = data
 
     mongo.close()
 
     return ret
+
 
 def get_financials_reported_attrs(tickers, attrs, date):
     date = util.normalize_datetime(date)
@@ -318,16 +400,15 @@ def get_financials_reported_attrs(tickers, attrs, date):
         # Pull the most recent sample before date
         samples = list(db.financials_reported.find(
             {
-                'symbol': { '$eq': ticker },
-                'startDate': { '$lte': date },
-                'endDate': { '$gte': date },
+                'symbol': {'$eq': ticker},
+                'startDate': {'$lte': date},
+                'endDate': {'$gte': date},
             }
-        ).sort("startDate", pymongo.DESCENDING) \
-         .sort("endDate", pymongo.ASCENDING) \
+        ).sort("startDate", pymongo.DESCENDING)
+         .sort("endDate", pymongo.ASCENDING)
          .limit(1))
 
         if len(samples) == 0:
-            print(f'No financials reported for {ticker}')
             continue
         else:
             sample = samples[0]
@@ -349,11 +430,11 @@ def get_financials_reported_attrs(tickers, attrs, date):
                             if attr_entry['concept'] == attr:
                                 ret[ticker][attr] = attr_entry['value']
                                 break
-                        
 
     mongo.close()
 
     return ret
+
 
 def get_financials_reported_attrs_ts(tickers, attrs, start_date, end_date):
     """
@@ -365,7 +446,7 @@ def get_financials_reported_attrs_ts(tickers, attrs, start_date, end_date):
     start_date = util.normalize_datetime(start_date)
     end_date = util.normalize_datetime(end_date)
 
-    ret = { ticker: pd.DataFrame(columns=attrs) for ticker in tickers }
+    ret = {ticker: pd.DataFrame(columns=attrs) for ticker in tickers}
 
     date = start_date
     while date <= end_date:
@@ -373,6 +454,76 @@ def get_financials_reported_attrs_ts(tickers, attrs, start_date, end_date):
         date += timedelta(days=1)
         for ticker, row in day_samples.items():
             ret[ticker].loc[date] = row
+
+    return ret
+
+
+def get_financials_reported_attrs_ts_2(tickers, attrs, start_date, end_date):
+    """
+    Get from the db a timeseries of financials reported attributes for the specified time period.
+
+    Returns:
+    dict[str, DataFrame]: a dataframe for each asset, where each column is an attribute, row key is date.
+    """
+    start_date = util.normalize_datetime(start_date)
+    end_date = util.normalize_datetime(end_date)
+
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+
+    ret = {}
+
+    for ticker in tickers:
+        reports = list(db.financials_reported.find(
+            {
+                'symbol': {'$eq': ticker},
+                'endDate': {'$gte': start_date, '$lte': end_date},
+            }
+        ).sort("startDate", pymongo.ASCENDING)
+         .sort("endDate", pymongo.DESCENDING))  # Prefer shorter-term reports
+
+        df = pd.DataFrame(columns=attrs, index=pd.date_range(start=start_date, end=end_date))
+
+        # For each report, copy data to DataFrame
+        for report in reports:
+            attrs_dict = _financials_reported_attrs(report, attrs)
+            for attr, value in attrs_dict.items():
+                max_start_date = max(util.normalize_datetime(report['startDate']), start_date)
+                df.loc[pd.date_range(start=max_start_date, end=util.normalize_datetime(report['endDate'])), attr] = value
+
+        ret[ticker] = df
+
+    return ret
+
+
+def _financials_reported_attrs(report, attrs=None):
+    ret = {}
+
+    if not attrs:
+        for category in ['bs', 'cf', 'ic']:
+            cat_attrs = report['report'][category]
+            # The schema on finnhub.io shows this format
+            if isinstance(cat_attrs, dict):
+                ret |= cat_attrs
+            # But all (most?) samples I've found are in this format
+            elif isinstance(cat_attrs, list):
+                for attr_entry in cat_attrs:
+                    ret[attr_entry['concept']] = attr_entry['value']
+    else:
+        for attr in attrs:
+            for category in ['bs', 'cf', 'ic']:
+                cat_attrs = report['report'][category]
+                # The schema on finnhub.io shows this format
+                if isinstance(cat_attrs, dict):
+                    if attr in cat_attrs.keys():
+                        ret[attr] = cat_attrs[attr]
+                        break
+                # But all (most?) samples I've found are in this format
+                elif isinstance(cat_attrs, list):
+                    for attr_entry in cat_attrs:
+                        if attr_entry['concept'] == attr:
+                            ret[attr] = attr_entry['value']
+                            break
 
     return ret
 
@@ -385,8 +536,9 @@ def save_predictions(predictions):
             db.model_predictions.insert_one(prediction.asdict())
         except DuplicateKeyError as ex:
             pass
-    
+
     mongo.close()
+
 
 def get_predictions(tickers, start_date, end_date, model_id=None):
     """
@@ -402,11 +554,11 @@ def get_predictions(tickers, start_date, end_date, model_id=None):
 
     for ticker in tickers:
         query = {
-            'ticker': { '$eq': ticker },
-            'predict_from_date': { '$gte': start_date, '$lte': end_date }
+            'ticker': {'$eq': ticker},
+            'predict_from_date': {'$gte': start_date, '$lte': end_date}
         }
         if model_id is not None:
-            query['model_id'] = { '$eq': model_id }
+            query['model_id'] = {'$eq': model_id}
         # Pull latest samples
         cur = db.model_predictions.find(query).sort("predict_from_date", pymongo.ASCENDING)
         predictions = []
@@ -419,6 +571,7 @@ def get_predictions(tickers, start_date, end_date, model_id=None):
 
     return ret
 
+
 def get_all_predictions(start_date, end_date, model_id=None):
     """
     :returns [Prediction]
@@ -430,10 +583,10 @@ def get_all_predictions(start_date, end_date, model_id=None):
     db = mongo.stock_analysis
 
     query = {
-        'predict_from_date': { '$gte': start_date, '$lte': end_date }
+        'predict_from_date': {'$gte': start_date, '$lte': end_date}
     }
     if model_id is not None:
-        query['model_id'] = { '$eq': model_id }
+        query['model_id'] = {'$eq': model_id}
     cur = db.model_predictions.find(query).sort("predict_from_date", pymongo.ASCENDING)
     predictions = []
     for sample in cur:
@@ -441,8 +594,9 @@ def get_all_predictions(start_date, end_date, model_id=None):
         predictions.append(Prediction(**sample))
 
     mongo.close()
-    
+
     return predictions
+
 
 def get_model_ids():
     """
@@ -455,19 +609,21 @@ def get_model_ids():
     db = mongo.stock_analysis
 
     query = {
-        'predict_from_date': { '$gte': start_date, '$lte': end_date }
+        'predict_from_date': {'$gte': start_date, '$lte': end_date}
     }
     ids = db.model_predictions.find(query).distinct('model_id')
 
     mongo.close()
-    
+
     return ids
+
 
 def save_model_envs(envs):
     mongo = mongo_client()
     db = mongo.stock_analysis
     db.model_envs.insert_many(map(lambda e: e.to_dict(), envs))
     mongo.close()
+
 
 def get_all_model_envs():
     mongo = mongo_client()

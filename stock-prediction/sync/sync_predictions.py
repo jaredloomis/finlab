@@ -17,7 +17,7 @@ n_features = 58
 n_outputs = 1
 predict_window = 14
 
-def df_to_signal_set(df):
+def _df_to_signal_set(df):
     try:
         return TechnicalSignalSet(df, predict_window=predict_window)
     except:
@@ -43,7 +43,7 @@ def sync_predictions(tickers):
         model = PredictiveModel.load(model_path, net)
 
         # Make predictions
-        predictions = predict_price_change(model, df_to_signal_set, tickers)
+        predictions = predict_price_change(model, _df_to_signal_set, tickers)
 
         # Save predictions
         ds.save_predictions([p for t, p in predictions.items()])

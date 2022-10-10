@@ -9,21 +9,27 @@ numpy = "*"
 pandas = "*"
 seaborn = "*"
 matplotlib = "*"
-torch = {version = "==1.11.0", file = "https://download.pytorch.org/whl/cu115/torch-1.11.0%2Bcu115-cp310-cp310-linux_x86_64.whl"}
-psycopg2 = "*"
+torch = "*"
+#torch = {version = "==1.11.0", file = "https://download.pytorch.org/whl/cu115/torch-1.11.0%2Bcu115-cp310-cp310-linux_x86_64.whl"}
+#psycopg2 = "*"
 scikit-learn = "*"
 plotly = "*"
-yfinance = "*"
 ta = "*"
 pymongo = "*"
 beautifulsoup4 = "*"
 finnhub-python = "*"
-xgboost = "*"
+#xgboost = "*"
 pandas-datareader = "*"
 flask = "*"
 python-dateutil = "*"
+py-xbrl = "*"
+secedgar = "*"
+# NEEDS Python <3.10
+#arelle-release = "*"
+pathos = "*"
+websocket-client = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3"
+python_version = "3.8"

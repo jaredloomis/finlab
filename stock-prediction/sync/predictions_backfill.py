@@ -20,7 +20,7 @@ from active_models import active_models
 n_features = 58
 n_outputs = 1
 predict_window = 14
-LOOKBACK_DAYS = 60
+LOOKBACK_DAYS = 30
 today = date.today()
 
 if len(sys.argv) == 1:
@@ -30,6 +30,7 @@ if len(sys.argv) == 1:
     tickers = pd.concat([watchlist, spy])
 else:
     tickers = sys.argv[1:]
+
 
 def df_to_signal_set(df):
     try:

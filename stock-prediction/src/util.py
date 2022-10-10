@@ -5,6 +5,10 @@ import json
 import dateutil.parser
 
 
+def today():
+    return datetime.datetime.now().date()
+
+
 def round_batch_size(sample_count, approximately, leeway=None):
     """
     Round batch size to a more suitable value. This helps to avoid a
@@ -41,9 +45,11 @@ def normalize_datetime(date):
     if isinstance(date, str):
         return dateutil.parser.isoparse(date)
     elif isinstance(date, datetime.date):
-        return datetime.datetime.combine(date, datetime.time.min)
-    else:
+        return datetime.datetime.combine(date, datetime.datetime.min.time())
+    elif isinstance(date, datetime.datetime):
         return date
+    else:
+        raise f"Unrecognized datetime obj: {date}"
 
 
 class DateTimeEncoder(json.JSONEncoder):
