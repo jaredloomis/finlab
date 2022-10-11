@@ -69,7 +69,7 @@ def get_latest_price(tickers):
     return ret
 
 
-def download_intraday_history(tickers, interval='5min'):
+def download_candles(tickers, interval='5min'):
     mongo = mongo_client()
     db = mongo.stock_analysis
 
@@ -95,6 +95,7 @@ def download_intraday_history(tickers, interval='5min'):
                             print(f"Error downloading intraday_history for {ticker}. Waiting 60s.")
                             print(err)
                             time.sleep(60)
+                            continue
 
                         # Parse CSV
                         candles_csv = res.text
@@ -113,6 +114,34 @@ def download_intraday_history(tickers, interval='5min'):
                         util.print_exception(ex)
                         print(f"Error downloading intraday_history for {ticker}. Waiting 60s.")
                         time.sleep(60)
+
+
+def get_candles(tickers, start, end, interval='5min'):
+    start = util.normalize_datetime(start)
+    end = util.normalize_datetime(end)
+
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+
+    ret = {}
+
+    for ticker in tickers:
+        # Pull all samples within range
+        cur = db[f'candles_{interval}'].find(
+            {
+                "symbol": {"$eq": ticker},
+                "time": {
+                    "$gte": start,
+                    "$lte": end,
+                },
+            }
+        )
+        data = pd.DataFrame([sample for sample in cur])
+        ret[ticker] = data
+
+    mongo.close()
+
+    return ret
 
 
 def download_last_price_updates(tickers):

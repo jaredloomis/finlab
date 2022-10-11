@@ -1,3 +1,6 @@
+from typing import Callable
+
+import pandas as pd
 import ta
 
 from signals import Signal
@@ -16,7 +19,18 @@ def signal_spec_to_signal(spec):
     return SIGNALS[spec['id']]({key: spec[key] for key in spec if key != 'id'})
 
 
+def rsi(base_signal, window=14):
+    return lambda data: \
+        Signal(f'rsi_{base_signal}_{window}', ta.momentum.RSIIndicator(data['base_signal'], window=window).rsi())
+
+
+class SignalSpec:
+    create: Callable[[pd.DataFrame], Signal]
+    requires: list[str]
+
 SIGNALS = {
-    'rsi': lambda spec, data:
-        Signal("rsi14", ta.momentum.RSIIndicator(data["close"], window=14).rsi())
+    'rsi': {
+        'requires': ['candlestick'],
+        'create': lambda spec: rsi(base_signal=spec['base_signal'], **spec)
+    }
 }

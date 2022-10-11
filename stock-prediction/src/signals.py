@@ -8,19 +8,16 @@ class SignalSet:
     A container for processing raw data into a set of signals suitable as features for an ML model.
 
     date : pd.Series of dates
-    signals : list[Signal]
+    signals : list[Signal] | pd.DataFrame
     label_keys : set[str] | list[str]
     """
-    def __init__(self, date, signals, label_keys, signals_df=None):
+    def __init__(self, date, signals, label_keys):
         self.date = date
-        if signals_df is None:
-            if isinstance(signals, pd.DataFrame):
-                self.signals = signals
-            else:
-                # Concat signals into one big DataFrame
-                self.signals = pd.DataFrame.from_dict({signal.column_name: signal.data for signal in signals})
+        if isinstance(signals, pd.DataFrame):
+            self.signals = signals
         else:
-            self.signals = signals_df
+            # Concat signals into one big DataFrame
+            self.signals = pd.DataFrame.from_dict({signal.column_name: signal.data for signal in signals})
         self.label_keys = label_keys
 
         self.X_scaler = StandardScaler()   # RobustScaler()
@@ -61,7 +58,7 @@ class SignalSet:
         # XXX HOW TO HANDLE DATE? Combine?
         df = pd.merge(a.signals, b.signals, left_index=True, right_index=True)  # pd.concat([a.signals, b.signals])
         df.sort_index(inplace=True)
-        return SignalSet(df.index, None, set(a.label_keys + b.label_keys), signals_df=df)
+        return SignalSet(df.index, df, set(a.label_keys + b.label_keys))
 
 
 class Signal:

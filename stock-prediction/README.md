@@ -5,9 +5,10 @@
 - Train new model
   - Get model configuration - input as json
     - `ModelConf`
-      - Type flag (pytorch / numpy)
+      - Type flag (pytorch / sklearn)
       - List of feature `Signal`s
       - List of label `Signal`s
+      - Model definition code
   - Data Prep
     - Data Sourcing - from network (or keep in sync with scheduled sync programs)
       - Determine what data is needed from `ModelConf`
@@ -15,6 +16,7 @@
       - Determine what data is needed from `ModelConf`
     - Feature Extraction
       - Technical Signals
+    - Deal with NaNs - fill or drop
     - Feature encoding - one-hot, to numpy
     - Shuffle
     - Sample
