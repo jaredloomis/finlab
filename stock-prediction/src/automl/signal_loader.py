@@ -11,6 +11,6 @@ class SignalLoader:
 
     @staticmethod
     def for_model(model_conf: ModelConf, **kwargs):
-        # Collect a list of DataStores needed
+        # Collect a list of DataStores providing the samples
         # Collect a list of computed Signals needed
         return SignalLoader(**kwargs)

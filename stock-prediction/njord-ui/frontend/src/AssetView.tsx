@@ -39,6 +39,9 @@ const AssetViewCore = (props: AssetViewProps) => {
   return <div className="asset-view">
     <h1>{ticker}</h1>
     <div>
+      <div className="asset-info">
+        <a href={`https://finance.yahoo.com/quote/${ticker}`}>Yahoo Finance</a>
+      </div>
       <div className="asset-predictions">
         {!latestPred ? "No predictions yet. Try another model." : <p>
           {latestPred["window"]}-day prediction
@@ -52,8 +55,8 @@ const AssetViewCore = (props: AssetViewProps) => {
         <Plot
           data={[
             {
-              x: candlesticks[ticker] && candlesticks[ticker]["date"] &&
-                 candlesticks[ticker]["date"].map((d: any) => new Date(d)),
+              x: candlesticks[ticker] && candlesticks[ticker]["time"] &&
+                 candlesticks[ticker]["time"].map((d: any) => new Date(d)),
               y: candlesticks[ticker] && candlesticks[ticker]["open"],
               type: 'scattergl',
               mode: 'lines',

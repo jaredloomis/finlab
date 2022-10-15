@@ -17,11 +17,13 @@ n_features = 58
 n_outputs = 1
 predict_window = 14
 
+
 def _df_to_signal_set(df):
     try:
         return TechnicalSignalSet(df, predict_window=predict_window)
     except:
         return None
+
 
 def sync_predictions(tickers):
     for model_path in active_models:

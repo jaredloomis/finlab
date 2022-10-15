@@ -3,15 +3,18 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
+[[source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu116"
+verify_ssl = false
+
 [packages]
 jupyter = "*"
 numpy = "*"
 pandas = "*"
 seaborn = "*"
 matplotlib = "*"
-torch = "*"
-#torch = {version = "==1.11.0", file = "https://download.pytorch.org/whl/cu115/torch-1.11.0%2Bcu115-cp310-cp310-linux_x86_64.whl"}
-#psycopg2 = "*"
+torch = {version = "*", index = "pytorch"}
 scikit-learn = "*"
 plotly = "*"
 ta = "*"

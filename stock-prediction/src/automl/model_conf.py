@@ -8,6 +8,11 @@ class SignalSpec:
     # ex. {'id': 'candles_1d', select: 'open'}
     select: Optional[str]
 
+    def __init__(self, id, args, select=None):
+        self.id = id
+        self.args = args
+        self.select = select
+
 
 class ModelConf:
     model_type: str

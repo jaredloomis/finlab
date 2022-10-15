@@ -23,12 +23,12 @@ import pickle
 from datetime import datetime
 
 from predictive_model import PredictiveModel
-from signal_library import signal_specs_to_signal_set
+#from signal_library import signal_specs_to_signal_set
 
 
 class ModelEnv:
     def __init__(self, obj):
-        obj['signals'] = signal_specs_to_signal_set(obj['signals'])
+        #obj['signals'] = signal_specs_to_signal_set(obj['signals'])
         self.obj = obj
 
     def model(self):

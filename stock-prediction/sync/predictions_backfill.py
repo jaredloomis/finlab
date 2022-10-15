@@ -20,7 +20,7 @@ from active_models import active_models
 n_features = 58
 n_outputs = 1
 predict_window = 14
-LOOKBACK_DAYS = 30
+LOOKBACK_DAYS = 5
 today = date.today()
 
 if len(sys.argv) == 1:
@@ -56,9 +56,12 @@ for model_path in active_models:
         nn.Linear(8, n_outputs),
     )
     net = net.to(torch.device('cpu'))
+    print('loading model')
     model = PredictiveModel.load(model_path, net)
+    print('loaded model')
 
     for offset in range(0, LOOKBACK_DAYS):
+        print('prediction', offset)
         # Make predictions (in reverse order)
         predict_from_date = today - timedelta(days=offset)
         predictions = predict_price_change(model, df_to_signal_set, tickers, predict_from_date=predict_from_date)

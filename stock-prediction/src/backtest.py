@@ -128,7 +128,7 @@ def track_balance(start_cash, actions, candlesticks):
     total_return = 0
     snapshots = {}
     for action in actions:
-        latest_price = candlesticks[candlesticks["date"] == action.date]["open"].to_numpy()[0]
+        latest_price = candlesticks[candlesticks["time"] == action.date]["open"].to_numpy()[0]
         if action.action_type == "sell":
             if assets > 0:
                 cash += latest_price * action.quantity
@@ -149,8 +149,8 @@ def track_balance(start_cash, actions, candlesticks):
         }
 
     # Add a final snapshot
-    final_date = candlesticks["date"].to_numpy()[-1]
-    latest_price = candlesticks[candlesticks["date"] == final_date]["open"].to_numpy()[0]
+    final_date = candlesticks["time"].to_numpy()[-1]
+    latest_price = candlesticks[candlesticks["time"] == final_date]["open"].to_numpy()[0]
     snapshots[final_date] = {
         "cash": cash,
         "assets": assets,
@@ -197,7 +197,7 @@ def plot_backtest(snapshots: dict, actions, df):
     fig1 = plt.show()
 
     # Plot of asset price and vertical lines indicating buy/sell signals
-    plt.plot(df["date"], df["close"], label="Asset Price")
+    plt.plot(df["time"], df["close"], label="Asset Price")
     for action in actions:
         if action.action_type == "buy":
             plt.axvline(x=action.date, color="green")
@@ -206,7 +206,7 @@ def plot_backtest(snapshots: dict, actions, df):
     fig2 = plt.show()
 
     # Plot of asset price and shaded buy/sell regions
-    plt.plot(df["date"], df["close"], label="Asset Price")
+    plt.plot(df["time"], df["close"], label="Asset Price")
     buy_sell_spans = []
     half_span = None
     for action in actions:
@@ -220,7 +220,7 @@ def plot_backtest(snapshots: dict, actions, df):
             (
                 half_span,
                 Action(
-                    df.iloc[-1]["date"],
+                    df.iloc[-1]["time"],
                     "buy" if half_span.action_type == "sell" else "sell",
                     -1
                 ),

@@ -9,8 +9,8 @@ def test_automl_train():
     # User configuration needed to create a new model
     conf = ModelConf(
         type='pytorch',
-        features=[{'id': 'rsi', 'window': 14, 'base_signal': {'id': 'candles_1d', 'select': 'close'}}],
-        labels=[{'id': 'pchange', 'window': 14, 'base_signal': {'id': 'candles_1d', 'select': 'close'}}],
+        features=[{'id': 'rsi', 'window': 14, 'base_signal': {'id': 'candles', 'interval': '1d', 'select': 'close'}}],
+        labels=[{'id': 'pchange', 'window': 14, 'base_signal': {'id': 'candles', 'interval': '1d', 'select': 'close'}}],
         model_code='''
         import torch
         import torch.nn as nn

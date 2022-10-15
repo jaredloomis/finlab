@@ -7,7 +7,7 @@ class SignalSet:
     """
     A container for processing raw data into a set of signals suitable as features for an ML model.
 
-    date : pd.Series of dates
+    date : pd.Series of dates TODO rename time : datetime
     signals : list[Signal] | pd.DataFrame
     label_keys : set[str] | list[str]
     """
