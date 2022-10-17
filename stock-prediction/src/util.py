@@ -1,12 +1,36 @@
+from typing import Optional
+
 import numpy as np
 import traceback
 import datetime
+import re
 import json
 import dateutil.parser
+
+TimeRange = (datetime.datetime, datetime.datetime)
 
 
 def today():
     return datetime.datetime.now().date()
+
+
+def parse_interval(interval: str) -> (datetime.timedelta, str):
+    """
+    Parse an interval string, and get the timedelta plus the normalized string.
+    """
+    m = re.search(r"[a-zA-Z]", interval)
+    if m:
+        ix = m.start()
+        num = int(interval[:ix])
+        unit = interval[ix:].lower()
+        if unit.startswith('m'):
+            return datetime.timedelta(minutes=num), f'{num}min'
+        elif unit.startswith('h'):
+            return datetime.timedelta(hours=num), f'{num}hour'
+        elif unit.startswith('d'):
+            return datetime.timedelta(days=num), f'{num}day'
+    else:
+        raise f'util.parse_interval: couldn\'t parse interval string: {interval}'
 
 
 def round_batch_size(sample_count, approximately, leeway=None):

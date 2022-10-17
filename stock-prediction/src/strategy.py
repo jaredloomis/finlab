@@ -10,6 +10,30 @@ class Strategy:
         pass
 
     def execute(self, df):
+        raise 'Strategy.execute: not yet implemented!'
+
+
+# TODO
+class ModelStrategy:
+    def __init__(
+        self, model, cutoff=2, bias=0
+    ):
+        self.predict = model
+        self.cutoff = cutoff
+        self.bias = bias
+
+    def execute(self, time_range):
+        # Predict
+        signals = self.df_to_signal_set(df)
+        X, _y, _Xy_date = signals.to_xy()
+        y_predicted = signals.y_scaler.inverse_transform(self.predict(X[-1, :].reshape(1, -1)))[-1, 0]
+        # Decide on action
+        date = df["time"].to_numpy()[-1]
+        share_count = self.share_count(y_predicted)
+        if y_predicted > self.cutoff - self.bias:
+            return Action(date, "buy", 1)
+        elif y_predicted < -self.cutoff - self.bias:
+            return Action(date, "sell", 1)
         return None
 
 
@@ -28,7 +52,7 @@ class PretrainedModelStrategy(Strategy):
         X, _y, _Xy_date = signals.to_xy()
         y_predicted = signals.y_scaler.inverse_transform(self.predict(X[-1, :].reshape(1, -1)))[-1, 0]
         # Decide on action
-        date = df["date"].to_numpy()[-1]
+        date = df["time"].to_numpy()[-1]
         share_count = self.share_count(y_predicted)
         if y_predicted > self.cutoff - self.bias:
             return Action(date, "buy", 1)
@@ -54,7 +78,7 @@ class SignalModelStrategy(Strategy):
             self.train(pretrain_df, sigs=pretrain_sigs, force_train=True)
 
     def train(self, df, sigs=None, force_train=None):
-        if not self.pretrain or force_train == True:
+        if not self.pretrain or force_train:
             if not sigs:
                 sigs = self.df_to_signal_set(df)
             X, y, Xy_date = sigs.to_xy()

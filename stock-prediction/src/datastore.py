@@ -9,6 +9,7 @@ import json
 import pymongo
 from pymongo import MongoClient
 from pymongo.errors import BulkWriteError, DuplicateKeyError
+import pymongo.results
 import pandas_datareader as pdr
 import finnhub
 from datetime import timedelta
@@ -36,7 +37,7 @@ def get_latest_price(tickers):
 
     ret = {}
 
-    cur = db.daily_samples.aggregate(
+    cur = db.candles_1day.aggregate(
         [
             {"$match": {"symbol": {"$in": tickers.tolist()}}},
             {"$sort": {"time": 1}},
@@ -56,7 +57,7 @@ def get_latest_price(tickers):
     """
     for ticker in tickers:
         # Pull all samples within range
-        cur = db.daily_samples.find({
+        cur = db.candles_1day.find({
                         'symbol': { '$eq': ticker }
                     }).limit(1).sort("date", pymongo.DESCENDING)
         try:
@@ -101,7 +102,8 @@ def download_candles_intraday_extended(tickers, interval='5min'):
                         except:
                             pass
                         if err is not None:
-                            print(f"Error downloading intraday_history for {ticker}. Waiting 60s.")
+                            print(f"Error 1 downloading intraday_history_extended for {ticker}. Waiting 60s.")
+                            print(url)
                             print(err)
                             time.sleep(60)
                             continue
@@ -115,13 +117,14 @@ def download_candles_intraday_extended(tickers, interval='5min'):
                         # Store in db
                         if len(candles) > 0:
                             db[f'candles_{interval}'].insert_many(candles, ordered=False)
+                            print('saved', ticker, 'intraday_history_extended')
                         break
                     except pymongo.errors.BulkWriteError:
                         continue
                     except Exception as ex:
                         # For any unknown error, print and wait 60s to try again
                         util.print_exception(ex)
-                        print(f"Error downloading intraday_history for {ticker}. Waiting 60s.")
+                        print(f"Error 2 downloading intraday_history_extended for {ticker}. Waiting 60s.")
                         time.sleep(60)
 
 
@@ -150,7 +153,9 @@ def download_candles_intraday(tickers, interval='5min'):
                 err = None
                 try:
                     err = json.loads(res.text)
-                except:
+                except Exception as ex:
+                    print(ex)
+                    util.print_exception(ex)
                     pass
                 if err is not None:
                     print(f"Error downloading intraday_candles for {ticker}. Waiting 60s.")
@@ -180,6 +185,7 @@ def download_candles_intraday(tickers, interval='5min'):
 def get_candles(tickers, start, end, interval='5min'):
     start = util.normalize_datetime(start)
     end = util.normalize_datetime(end)
+    _, interval = util.parse_interval(interval)
 
     mongo = mongo_client()
     db = mongo.stock_analysis
@@ -198,11 +204,22 @@ def get_candles(tickers, start, end, interval='5min'):
             }
         )
         data = pd.DataFrame([sample for sample in cur])
+        data.index = data['time']
         ret[ticker] = data
 
     mongo.close()
 
     return ret
+
+
+def download_candles(tickers, start_date, end_date, interval='1day') -> None:
+    delta, interval = util.parse_interval(interval)
+
+    if delta >= timedelta(days=1):
+        download_daily_candlesticks(tickers, start_date, end_date)
+    else:
+        # TODO determine when to use the extended call vs standard
+        download_candles_intraday_extended(tickers, interval=interval)
 
 
 def download_last_price_updates(tickers):
@@ -238,6 +255,8 @@ def download_last_price_updates(tickers):
 
 
 def get_daily_candlesticks(tickers, start_date, end_date):
+    return get_candles(tickers, start_date, end_date, interval='1day')
+"""
     start_date = util.normalize_datetime(start_date)
     end_date = util.normalize_datetime(end_date)
 
@@ -248,7 +267,7 @@ def get_daily_candlesticks(tickers, start_date, end_date):
 
     for ticker in tickers:
         # Pull all samples within range
-        cur = db.daily_samples.find(
+        cur = db.candles_1day.find(
             {
                 "symbol": {"$eq": ticker},
                 "time": {
@@ -263,6 +282,7 @@ def get_daily_candlesticks(tickers, start_date, end_date):
     mongo.close()
 
     return ret
+"""
 
 
 def download_daily_candlesticks(tickers, start_date, end_date):
@@ -299,7 +319,7 @@ def download_daily_candlesticks(tickers, start_date, end_date):
             # Insert into mongo
             if not data.empty:
                 try:
-                    db.daily_samples.insert_many(data.to_dict("records"), ordered=False)
+                    db.candles_1day.insert_many(data.to_dict("records"), ordered=False)
                 except BulkWriteError as ex:
                     pass
                     # print(ex)
@@ -316,7 +336,7 @@ def delete_all_daily_candlesticks(ticker):
     """
     mongo = mongo_client()
     db = mongo.stock_analysis
-    db.daily_samples.delete_many({'symbol': {'$eq': ticker}})
+    db.candles_1day.delete_many({'symbol': {'$eq': ticker}})
     mongo.close()
 
 
@@ -340,7 +360,7 @@ def download_forex_daily_candlesticks(pairs):
                 'date': util.normalize_datetime(date_str)
             } for date_str, candle in candles.items()]
             # Store in db
-            db.daily_samples.insert_many(candles, ordered=False)
+            db.candles_1day.insert_many(candles, ordered=False)
         except Exception as ex:
             print(f"Error downloading daily candlesticks for {from_sym}/{to_sym}. Waiting 60s.")
             time.sleep(60)
@@ -733,10 +753,30 @@ def save_models(models: list[Model]):
     mongo.close()
 
 
+def get_model(model_id: str):
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+    obj = db.models.find_one({'id': {'$eq': model_id}})
+    if obj is not None:
+        ret = Model.deserialize(obj)
+        mongo.close()
+        return ret
+    else:
+        return None
+
+
 def get_all_models() -> list[Model]:
     mongo = mongo_client()
     db = mongo.stock_analysis
-    cur = db.model_envs.find({})
+    cur = db.models.find({})
     ret = [Model.deserialize(obj) for obj in cur]
     mongo.close()
     return ret
+
+
+def update_model(model: Model) -> pymongo.results.UpdateResult:
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+    result = db.models.update_one({'id': {'$eq': model.model_id}}, model.serialize())
+    mongo.close()
+    return result

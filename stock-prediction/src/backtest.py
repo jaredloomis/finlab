@@ -5,9 +5,10 @@ import traceback
 from multiprocessing import cpu_count
 import matplotlib.pyplot as plt
 
-from pathos.multiprocessing import ProcessingPool as Pool
+from pathos.multiprocessing import ProcessPool as Pool
 
 import datastore as ds
+import util
 
 
 def comprehensive_backtest(
@@ -15,15 +16,18 @@ def comprehensive_backtest(
     tickers,
     start_date,
     end_date,
+    interval='1day',
     start_cash=10000,
     train_test_ratio=0.3,
     plot=False,
     log=True,
-    download=True,
+    download=False,
     **kwargs,
 ):
     if isinstance(tickers, str):
         tickers = [tickers]
+
+    _, interval = util.parse_interval(interval)
 
     results = {}
     for ticker in tickers:
@@ -32,9 +36,9 @@ def comprehensive_backtest(
 
             # Download data to db
             if download:
-                ds.download_daily_candlesticks([ticker], start_date, end_date)
+                ds.download_candles([ticker], start_date, end_date)
             # Load data from db
-            data = ds.get_daily_candlesticks([ticker], start_date, end_date)[ticker]
+            data = ds.get_candles([ticker], start_date, end_date)[ticker]
 
             # Train/test split index
             split_index = int(np.floor(train_test_ratio * len(data.index)))
@@ -64,8 +68,8 @@ def comprehensive_backtest(
                     f"{len(actions)} buy/sells performed - {len(actions) / len(data.index) * 100}% of the time"
                 )
                 print(f"Stock price change: {price_change}%")
-                #print(f"Total gain/loss: {gain_loss}%")
                 print(f"ROI: {roi * 100}%")
+                print(f"Relative ROI: {roi * 100 / price_change}%")
                 print(final_result)
 
             # Plot results and asset price

@@ -7,11 +7,11 @@ class SignalSet:
     """
     A container for processing raw data into a set of signals suitable as features for an ML model.
 
-    date : pd.Series of dates TODO rename time : datetime
+    time : pd.Series of datetimes
     signals : list[Signal] | pd.DataFrame
     label_keys : set[str] | list[str]
     """
-    def __init__(self, date, signals, label_keys):
+    def __init__(self, date, signals, label_keys, X_scaler=None, y_scaler=None):
         self.date = date
         if isinstance(signals, pd.DataFrame):
             self.signals = signals
@@ -20,8 +20,8 @@ class SignalSet:
             self.signals = pd.DataFrame.from_dict({signal.column_name: signal.data for signal in signals})
         self.label_keys = label_keys
 
-        self.X_scaler = StandardScaler()   # RobustScaler()
-        self.y_scaler = StandardScaler()
+        self.X_scaler = X_scaler or StandardScaler()   # RobustScaler()?
+        self.y_scaler = y_scaler or StandardScaler()
 
     def to_x(self):
         X, y, date = self.to_xy()
@@ -60,9 +60,17 @@ class SignalSet:
         df.sort_index(inplace=True)
         return SignalSet(df.index, df, set(a.label_keys + b.label_keys))
 
+    def __repr__(self):
+        # TODO TMP
+        return self.signals.__repr__()
+
+    def __str__(self):
+        # TODO TMP
+        return str(self.signals)
+
 
 class Signal:
-    def __init__(self, column_name, data, one_hot=False, scaling="standard"):
+    def __init__(self, column_name, data, one_hot=False):
         """
         column_name : str
         data : pd.Series
@@ -72,10 +80,21 @@ class Signal:
         self.column_name = column_name
         self.data = data
         self.one_hot = one_hot
-        self.scaling = scaling
 
     def as_series(self):
         return self.data
+
+    def __getitem__(self, indices):
+        if not isinstance(indices, str):
+            raise Exception('Signal.__getitem__: only str key implemented')
+
+        return Signal(self.column_name + '[' + indices + ']', self.data[indices])
+
+    def __repr__(self):
+        return self.column_name + ':\n' + self.data.__repr__()
+
+    def __str__(self):
+        return self.column_name + ':\n' + str(self.data)
 
 
 def one_hot_encode(df, column):

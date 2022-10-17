@@ -1,35 +1,68 @@
-from typing import Union, Any
+from typing import Union, Any, Optional
 import torch
+import torch.nn as nn
 import sklearn
 import pickle
 import imp
 
-from signal_library import SignalSpec
+
+class SignalSpec:
+    signal_id: str
+    args: dict[str, Any]
+    base: Optional[Any]  # Optional[SignalSpec]
+    # Select a specific value of output
+    # ex. {'id': 'candles_1d', select: 'open'}
+    select: Optional[str]
+
+    def __init__(self, signal_id, args, base=None, select=None):
+        self.signal_id = signal_id
+        self.args = args
+        self.base = base
+        self.select = select
+
+    def qualified_id(self):
+        if self.base is None:
+            return self.signal_id
+        else:
+            return self.signal_id + '_' + self.base.qualified_id()
 
 
-class RawModel:
+class Backend:
+    def train(self, *args, **kwargs):
+        raise 'Backend.train: not yet implemented!'
+
     def serialize(self) -> Union[dict[str, Any], bytes]:
-        raise 'RawModel.serialize: not yet implemented!'
+        raise 'Backend.serialize: not yet implemented!'
 
     # XXX: Must be updated when additional model backend are implemented
     @staticmethod
     def deserialize(model: Union[dict[str, Any], bytes]) -> Any:
-        if 'model' in model and isinstance(model['model'], torch.nn.Module):
-            return TorchModel.deserialize(model)
-        elif 'model' in model and isinstance(model['model'], sklearn.base.BaseEstimator):
-            return SklearnModel.deserialize(model)
+        if model['model_type'] == 'pytorch':
+            return TorchBackend.deserialize(model)
+        elif model['model_type'] == 'sklearn':
+            return SklearnBackend.deserialize(model)
+        else:
+            raise f'Couldn\'t deserialize RawModel {model}'
+
+    def __call__(self, *args, **kwargs):
+        raise 'Backend.__call__: not yet implemented!'
 
 
-class TorchModel(RawModel):
-    model: torch.nn.Module
+class TorchBackend(Backend):
+    model: nn.Module
     model_code: str
 
-    def __init__(self, model: torch.nn.Module, model_code: str):
+    def __init__(self, model: nn.Module, model_code: str):
         self.model = model
         self.model_code = model_code
 
+    def train(self, *args, **kwargs):
+        self.model.train()
+        return self.model(*args, **kwargs)
+
     def serialize(self):
         return {
+            'model_type': 'pytorch',
             'state_dict': {k: v.tolist() for k, v in self.model.state_dict().items()},
             # Serialize the Tensors (numpy or lists)
             'model_code': self.model_code,
@@ -38,27 +71,47 @@ class TorchModel(RawModel):
     @staticmethod
     def deserialize(model):
         # Create the underlying model
-        print(model['model_code'])
         module = imp.new_module('mymodule')
         exec(model['model_code'], module.__dict__)
-        # Create the wrapper PredictiveModel
-        return TorchModel(module.model, model['model_code'])
+        # Load state dict
+        state_dict = {k: torch.Tensor(v) for k, v in model['state_dict'].items()}
+        module.model.load_state_dict(state_dict)
+        return TorchBackend(module.model, model['model_code'])
+
+    def __eq__(self, other):
+        return self.model_code == other.model_code and \
+               all([torch.equal(self.model.state_dict()[key], other.model.state_dict()[key]) for key in
+                    self.model.state_dict().keys()])
+
+    def __call__(self, *args, **kwargs):
+        self.model.eval()
+        return self.model(*args, **kwargs)
 
 
-class SklearnModel(RawModel):
+class SklearnBackend(Backend):
     model: sklearn.base.BaseEstimator
 
     def __init__(self, model: sklearn.base.BaseEstimator):
         self.model = model
 
+    def train(self, *args, **kwargs):
+        return self.model.fit(*args, **kwargs)
+
     def serialize(self):
         return {
-            'model': pickle.dumps(self.model)
+            'model_type': 'sklearn',
+            'model': pickle.dumps(self.model),
         }
 
     @staticmethod
     def deserialize(model):
-        return pickle.loads(model['model'])
+        return SklearnBackend(pickle.loads(model['model']))
+
+    def __eq__(self, other):
+        return self.model == other.model
+
+    def __call__(self, *args, **kwargs):
+        return self.model.predict(*args, **kwargs)
 
 
 SerializedRawModel = Union[dict[str, Any], bytes]
@@ -75,17 +128,17 @@ def deserialize_scaler(scaler: bytes) -> sklearn.base.BaseEstimator:
 class Model:
     model_id: str
     display_name: str
-    model: RawModel
+    backend: Backend
     signals: list[SignalSpec]
     X_scaler: sklearn.base.BaseEstimator
     y_scaler: sklearn.base.BaseEstimator
 
     def __init__(self,
-                 model_id: str, display_name: str, model: RawModel, signals: list[SignalSpec],
+                 model_id: str, display_name: str, model: Backend, signals: list[SignalSpec],
                  X_scaler: sklearn.base.BaseEstimator, y_scaler: sklearn.base.BaseEstimator):
         self.model_id = model_id
         self.display_name = display_name
-        self.model = model
+        self.backend = model
         self.signals = signals
         self.X_scaler = X_scaler
         self.y_scaler = y_scaler
@@ -94,7 +147,7 @@ class Model:
         return {
             'id': self.model_id,
             'display_name': self.display_name,
-            'model': self.model.serialize(),
+            'model': self.backend.serialize(),
             'signals': self.signals,
             'X_scaler': serialize_scaler(self.X_scaler),
             'y_scaler': serialize_scaler(self.y_scaler),
@@ -103,6 +156,24 @@ class Model:
     @staticmethod
     def deserialize(obj: dict[str, Any]) -> Any:
         return Model(
-            obj['id'], obj['display_name'], RawModel.deserialize(obj['model']),
-            obj['signals'], obj['X_scaler'], obj['y_scaler']
+            obj['id'], obj['display_name'], Backend.deserialize(obj['model']),
+            obj['signals'], deserialize_scaler(obj['X_scaler']), deserialize_scaler(obj['y_scaler'])
         )
+
+    def train(self, *args, **kwargs):
+        return self.backend.train(*args, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        return self.backend(*args, **kwargs)
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return str(self.serialize())
+
+    def __eq__(self, other) -> bool:
+        return self.model_id == other.model_id and self.display_name == other.display_name and \
+               self.backend == other.backend and self.signals == other.signals and \
+               pickle.dumps(self.X_scaler) == pickle.dumps(other.X_scaler) and \
+               pickle.dumps(self.y_scaler) == pickle.dumps(other.y_scaler)
