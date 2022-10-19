@@ -6,25 +6,26 @@ import pickle
 import imp
 
 
-class SignalSpec:
+class SignalExpr:
     signal_id: str
     args: dict[str, Any]
-    base: Optional[Any]  # Optional[SignalSpec]
     # Select a specific value of output
     # ex. {'id': 'candles_1d', select: 'open'}
     select: Optional[str]
 
-    def __init__(self, signal_id, args, base=None, select=None):
+    def __init__(self, signal_id, args, select=None):
         self.signal_id = signal_id
         self.args = args
-        self.base = base
         self.select = select
 
     def qualified_id(self):
-        if self.base is None:
-            return self.signal_id
-        else:
-            return self.signal_id + '_' + self.base.qualified_id()
+        ret = self.signal_id
+        for name, val in self.args.items():
+            if isinstance(val, SignalExpr):
+                ret += '_' + val.qualified_id()
+            else:
+                ret += '_' + name + str(val)
+        return ret
 
 
 class Backend:
@@ -129,12 +130,12 @@ class Model:
     model_id: str
     display_name: str
     backend: Backend
-    signals: list[SignalSpec]
+    signals: list[SignalExpr]
     X_scaler: sklearn.base.BaseEstimator
     y_scaler: sklearn.base.BaseEstimator
 
     def __init__(self,
-                 model_id: str, display_name: str, model: Backend, signals: list[SignalSpec],
+                 model_id: str, display_name: str, model: Backend, signals: list[SignalExpr],
                  X_scaler: sklearn.base.BaseEstimator, y_scaler: sklearn.base.BaseEstimator):
         self.model_id = model_id
         self.display_name = display_name
