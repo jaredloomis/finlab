@@ -1,3 +1,5 @@
+from typing import Any
+
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.preprocessing import OneHotEncoder
@@ -27,7 +29,7 @@ class SignalSet:
         X, y, date = self.to_xy()
         return X, date
 
-    def to_xy(self):
+    def to_xy(self, X_scaler=None, y_scaler=None):
         # TODO one-hot
         # TODO custom scaling, per feature
         features = self.signals
@@ -48,17 +50,23 @@ class SignalSet:
         y = features[self.label_keys].to_numpy()
 
         # Scale
-        X = self.X_scaler.fit_transform(X)
-        y = self.y_scaler.fit_transform(y)[:, 0]
+        X = (X_scaler or self.X_scaler).fit_transform(X)
+        y = (y_scaler or self.y_scaler).fit_transform(y)[:, 0]
         return X, y, date
 
     @staticmethod
-    def concat(a, b):
-        # TODO take a list[SignalSet] as argument
-        # XXX HOW TO HANDLE DATE? Combine?
-        df = pd.merge(a.signals, b.signals, left_index=True, right_index=True)  # pd.concat([a.signals, b.signals])
-        df.sort_index(inplace=True)
-        return SignalSet(df.index, df, set(a.label_keys + b.label_keys))
+    def concat(signal_sets: list[Any]):
+        if len(signal_sets) == 0:
+            return None
+        else:
+            df = signal_sets[0].signals
+            label_keys = signal_sets[0].label_keys
+            for signal_set in signal_sets[1:]:
+                df = pd.merge(df, signal_set.signals, left_index=True, right_index=True)
+                label_keys |= signal_set.label_keys
+            df.sort_index(inplace=True)
+
+            return SignalSet(df.index, df, label_keys)
 
     def __repr__(self):
         # TODO TMP

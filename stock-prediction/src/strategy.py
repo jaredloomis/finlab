@@ -1,8 +1,12 @@
 import math
 import random
+from typing import Optional
 
 from backtest import Action
+from signals import SignalSet
 from technical_signals import TechnicalSignalSet
+from model import Model
+from signal_library import fetch_signal_set, FetchOptions
 
 
 class Strategy:
@@ -13,27 +17,32 @@ class Strategy:
         raise 'Strategy.execute: not yet implemented!'
 
 
-# TODO
 class ModelStrategy:
+    model: Model
+    cutoff: float
+    bias: float
+
     def __init__(
-        self, model, cutoff=2, bias=0
+        self, model: Model, cutoff=2, bias=0, share_count=lambda x: 1
     ):
-        self.predict = model
+        self.model = model
         self.cutoff = cutoff
         self.bias = bias
+        self.share_count = share_count
 
-    def execute(self, time_range):
+    def execute(self, fetch_options: FetchOptions) -> Optional[Action]:
         # Predict
-        signals = self.df_to_signal_set(df)
-        X, _y, _Xy_date = signals.to_xy()
-        y_predicted = signals.y_scaler.inverse_transform(self.predict(X[-1, :].reshape(1, -1)))[-1, 0]
+        signals_sets = fetch_signal_set(self.model.features, self.model.labels, fetch_options)
+        signal_set = SignalSet.concat([sig_set for _, sig_set in signals_sets.items()])
+        X, _y, Xy_date = signal_set.to_xy(X_scaler=self.model.X_scaler, y_scaler=self.model.y_scaler)
+        y_predicted = self.model.y_scaler.inverse_transform(self.model(X[-1, :].reshape(1, -1)))[-1, 0]
         # Decide on action
-        date = df["time"].to_numpy()[-1]
+        date = Xy_date.to_numpy()[-1]
         share_count = self.share_count(y_predicted)
         if y_predicted > self.cutoff - self.bias:
-            return Action(date, "buy", 1)
+            return Action(date, "buy", share_count)
         elif y_predicted < -self.cutoff - self.bias:
-            return Action(date, "sell", 1)
+            return Action(date, "sell", share_count)
         return None
 
 

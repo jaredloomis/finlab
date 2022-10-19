@@ -57,9 +57,9 @@ def fetch_signal(spec: SignalExpr, options: FetchOptions) -> dict[str, Signal]:
             return create(expanded_args)
 
 
-example = SignalExpr('rsi', {'window': 14, 'base': SignalExpr('candles_5min', {}, select='open')})
+example = SignalExpr('rsi', {'window': 14, 'base': SignalExpr('candles_5min', {}, select='close')})
 
-example2 = SignalExpr('avg_true_range', {'window': 14, 'base': SignalExpr('candles_5min', {})})
+example2 = SignalExpr('percent_price_osc', {'window': 14, 'base': SignalExpr('candles_5min', {}, select='close')})
 
 FETCHERS = {
     'candles_1day': \
@@ -83,11 +83,11 @@ def kama(args: dict[str, Any]) -> Signal:
     )
 
 
-def percent_price_osc(args: dict[str, Any]) -> Signal:
-    return Signal(
-        f'percent_price_osc{args["window"]}({args["base"].column_name})',
-        ta.momentum.PercentagePriceOscillator(args['base'].data, window=args["window"]).kama()
-    )
+def percent_price_osc(args: dict[str, Any]) -> dict[str, Signal]:
+    return {sym: Signal(
+        f'percent_price_osc{args["window"]}({sig.column_name})',
+        ta.momentum.PercentagePriceOscillator(sig.data).ppo()
+    ) for sym, sig in args['base'].items()}
 
 
 def avg_true_range(args: dict[str, Any]) -> dict[str, Signal]:
@@ -107,7 +107,6 @@ COMPUTED = {
         'create': kama,
     },
     'percent_price_osc': {
-        'params': [{'window': int}],
         'create': percent_price_osc,
     },
     'avg_true_range': {

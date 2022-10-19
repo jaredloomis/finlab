@@ -204,6 +204,7 @@ def get_candles(tickers, start, end, interval='5min'):
             }
         )
         data = pd.DataFrame([sample for sample in cur])
+        #print(data)
         data.index = data['time']
         ret[ticker] = data
 

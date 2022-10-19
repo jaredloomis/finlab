@@ -130,17 +130,20 @@ class Model:
     model_id: str
     display_name: str
     backend: Backend
-    signals: list[SignalExpr]
+    features: list[SignalExpr]
+    labels: list[SignalExpr]
     X_scaler: sklearn.base.BaseEstimator
     y_scaler: sklearn.base.BaseEstimator
 
     def __init__(self,
-                 model_id: str, display_name: str, model: Backend, signals: list[SignalExpr],
+                 model_id: str, display_name: str, backend: Backend,
+                 features: list[SignalExpr], labels: list[SignalExpr],
                  X_scaler: sklearn.base.BaseEstimator, y_scaler: sklearn.base.BaseEstimator):
         self.model_id = model_id
         self.display_name = display_name
-        self.backend = model
-        self.signals = signals
+        self.backend = backend
+        self.features = features
+        self.labels = labels
         self.X_scaler = X_scaler
         self.y_scaler = y_scaler
 
@@ -149,7 +152,8 @@ class Model:
             'id': self.model_id,
             'display_name': self.display_name,
             'model': self.backend.serialize(),
-            'signals': self.signals,
+            'features': self.features,
+            'labels': self.labels,
             'X_scaler': serialize_scaler(self.X_scaler),
             'y_scaler': serialize_scaler(self.y_scaler),
         }
@@ -158,7 +162,7 @@ class Model:
     def deserialize(obj: dict[str, Any]) -> Any:
         return Model(
             obj['id'], obj['display_name'], Backend.deserialize(obj['model']),
-            obj['signals'], deserialize_scaler(obj['X_scaler']), deserialize_scaler(obj['y_scaler'])
+            obj['features'], obj['labels'], deserialize_scaler(obj['X_scaler']), deserialize_scaler(obj['y_scaler'])
         )
 
     def train(self, *args, **kwargs):
@@ -175,6 +179,7 @@ class Model:
 
     def __eq__(self, other) -> bool:
         return self.model_id == other.model_id and self.display_name == other.display_name and \
-               self.backend == other.backend and self.signals == other.signals and \
+               self.backend == other.backend and self.features == other.features and \
+               self.labels == other.labels and \
                pickle.dumps(self.X_scaler) == pickle.dumps(other.X_scaler) and \
                pickle.dumps(self.y_scaler) == pickle.dumps(other.y_scaler)
