@@ -1,10 +1,12 @@
-from typing import Any
+import pandas as pd
+from typing import Any, Callable
+from numba import jit
 
 import ta
 
 import datastore as ds
 from signals import Signal, SignalSet
-from model import SignalExpr
+from signal_expr import SignalExpr
 from util import TimeRange
 
 
@@ -28,16 +30,18 @@ def fetch_signal_set(feature_specs: list[SignalExpr], label_specs: list[SignalEx
         return {
             sym: SignalSet(
                 feature_signals[0][first_key].data.index, list(map(lambda s: s[sym], signals)), label_names
-            ) for sym in options.symbols
+            ) for sym in options.symbols if sym in signals[0]
         }
     else:
-        raise Exception('fetch_signal_set: no feature signals returned')
+        raise Exception(f'fetch_signal_set: no feature signals returned {feature_signals}')
 
 
+# TODO profile whether the jit helps
+@jit(forceobj=True)
 def fetch_signal(spec: SignalExpr, options: FetchOptions) -> dict[str, Signal]:
     if spec.signal_id in FETCHERS:
         datas = FETCHERS[spec.signal_id](options)
-        sigs = {sym: Signal(spec.qualified_id(), data) for sym, data in datas.items()}
+        sigs = {sym: Signal(spec.qualified_id(), data) for sym, data in datas.items() if not data.empty}
         if spec.select is not None:
             return {sym: sig[spec.select] for sym, sig in sigs.items()}
         else:
@@ -45,7 +49,7 @@ def fetch_signal(spec: SignalExpr, options: FetchOptions) -> dict[str, Signal]:
     elif spec.signal_id in COMPUTED:
         create = COMPUTED[spec.signal_id]['create']
         # Expand each SignalExpr args into dict[str, Signal]
-        expanded_args = {}
+        expanded_args: dict[str, dict[str, Signal]] = {}
         for name, val in spec.args.items():
             if isinstance(val, SignalExpr):
                 expanded_args[name] = fetch_signal(val, options)
@@ -55,11 +59,13 @@ def fetch_signal(spec: SignalExpr, options: FetchOptions) -> dict[str, Signal]:
             return create(expanded_args)[spec.select]
         else:
             return create(expanded_args)
+    else:
+        raise Exception(f'Signal id not recognized: {spec.signal_id}')
 
 
 example = SignalExpr('rsi', {'window': 14, 'base': SignalExpr('candles_5min', {}, select='close')})
 
-example2 = SignalExpr('percent_price_osc', {'window': 14, 'base': SignalExpr('candles_5min', {}, select='close')})
+example2 = SignalExpr('avg_true_range', {'window': 14, 'base': SignalExpr('candles_5min', {})})
 
 FETCHERS = {
     'candles_1day': \
@@ -71,46 +77,110 @@ FETCHERS = {
 
 def rsi(args: dict[str, Any]) -> dict[str, Signal]:
     return {sym: Signal(
-        f'rsi{args["window"]}({sig.column_name})',
-        ta.momentum.RSIIndicator(sig.data, window=args["window"]).rsi()
-    ) for sym, sig in args['base'].items()}
+        f'rsi<window={args["window"]}>(base={base_sig.column_name})',
+        ta.momentum.RSIIndicator(base_sig.data, window=args["window"]).rsi()
+    ) for sym, base_sig in args['base'].items()}
 
 
-def kama(args: dict[str, Any]) -> Signal:
-    return Signal(
-        f'kama{args["window"]}({args["base"].column_name})',
-        ta.momentum.KAMAIndicator(args['base'].data, window=args["window"]).kama()
-    )
-
-
-def percent_price_osc(args: dict[str, Any]) -> dict[str, Signal]:
+def kama(args: dict[str, Any]) -> dict[str, Signal]:
     return {sym: Signal(
-        f'percent_price_osc{args["window"]}({sig.column_name})',
-        ta.momentum.PercentagePriceOscillator(sig.data).ppo()
-    ) for sym, sig in args['base'].items()}
+        f'kama<window={args["window"]}>(base={base_sig.column_name})',
+        ta.momentum.KAMAIndicator(base_sig.data, window=args["window"]).kama()
+    ) for sym, base_sig in args['base'].items()}
+
+
+def percent_price_oscillator(args: dict[str, Any]) -> dict[str, Signal]:
+    return {sym: Signal(
+        f'percent_price_oscillator(base={base_sig.column_name})',
+        ta.momentum.PercentagePriceOscillator(base_sig.data).ppo()
+    ) for sym, base_sig in args['base'].items()}
 
 
 def avg_true_range(args: dict[str, Any]) -> dict[str, Signal]:
     return {sym: Signal(
-        f'avg_true_range{args["window"]}({sig.column_name})',
-        ta.volatility.AverageTrueRange(sig.data["high"], sig.data["low"], sig.data["close"]).average_true_range()
+        f'avg_true_range<window={args["window"]}>(base={base_sig.column_name})',
+        ta.volatility.AverageTrueRange(base_sig.data["high"], base_sig.data["low"], base_sig.data["close"]).average_true_range()
+    ) for sym, base_sig in args['base'].items()}
+
+
+def ema(args: dict[str, Any]) -> dict[str, Signal]:
+    return {sym: Signal(
+        f'ema<window={args["window"]}>(base={sig.column_name})',
+        ta.trend.EMAIndicator(sig.data).ema_indicator()
     ) for sym, sig in args['base'].items()}
+
+
+def ulcer_index(args: dict[str, Any]) -> dict[str, Signal]:
+    return {sym: Signal(
+        f'ulcer_index<window={args["window"]}>(base={sig.column_name})',
+        ta.volatility.UlcerIndex(sig.data).ulcer_index()
+    ) for sym, sig in args['base'].items()}
+
+
+def macd(args: dict[str, Any]) -> dict[str, Signal]:
+    return {sym: Signal(
+        f'macd<window={args["window"]}>(base={sig.column_name})',
+        ta.trend.MACD(sig.data).macd()
+    ) for sym, sig in args['base'].items()}
+
+
+def percent_change(args: dict[str, Any]) -> dict[str, Signal]:
+    """
+    NEGATIVE WINDOW INDICATES BACKWARDS IN HISTORY!!
+    """
+    return {sym: Signal(
+        f'percent_change<window={args["window"]}>(base={sig.column_name})',
+        _percent_change(sig.data)
+    ) for sym, sig in args['base'].items()}
+
+
+def _percent_change(data, window=1):
+    """
+    NEGATIVE WINDOW INDICATES BACKWARDS IN HISTORY!!
+    """
+    if window < 0:
+        return -(
+            data.diff(periods=window) / data * 100
+        ).shift(-window)
+    else:
+        return -(
+            (data - data.shift(-window))
+            / data
+            * 100
+        )
 
 
 COMPUTED = {
     'rsi': {
-        'params': [{'window': int}],
+        'params': {'base': Signal, 'window': int},
         'create': rsi,
     },
     'kama': {
-        'params': [{'window': int}],
+        'params': {'base': Signal, 'window': int},
         'create': kama,
     },
-    'percent_price_osc': {
-        'create': percent_price_osc,
+    'percent_price_oscillator': {
+        'params': {'base': Signal},
+        'create': percent_price_oscillator,
     },
     'avg_true_range': {
-        'params': [{'window': int}],
+        'params': {'base': Signal, 'window': int},
         'create': avg_true_range,
+    },
+    'ema': {
+        'params': {'base': Signal, 'window': int},
+        'create': ema,
+    },
+    'percent_change': {
+        'params': {'base': Signal, 'window': int},
+        'create': percent_change,
+    },
+    'ulcer_index': {
+        'params': {'base': Signal, 'window': int},
+        'create': ulcer_index,
+    },
+    'macd': {
+        'params': {'base': Signal, 'window': int},
+        'create': macd,
     },
 }

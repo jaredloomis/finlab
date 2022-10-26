@@ -6,7 +6,7 @@ from backtest import Action
 from signals import SignalSet
 from technical_signals import TechnicalSignalSet
 from model import Model
-from signal_library import fetch_signal_set, FetchOptions
+import util
 
 
 class Strategy:
@@ -17,7 +17,7 @@ class Strategy:
         raise 'Strategy.execute: not yet implemented!'
 
 
-class ModelStrategy:
+class ModelStrategy(Strategy):
     model: Model
     cutoff: float
     bias: float
@@ -30,12 +30,15 @@ class ModelStrategy:
         self.bias = bias
         self.share_count = share_count
 
-    def execute(self, fetch_options: FetchOptions) -> Optional[Action]:
+    def execute(self, signals: SignalSet) -> Optional[Action]:
         # Predict
-        signals_sets = fetch_signal_set(self.model.features, self.model.labels, fetch_options)
-        signal_set = SignalSet.concat([sig_set for _, sig_set in signals_sets.items()])
-        X, _y, Xy_date = signal_set.to_xy(X_scaler=self.model.X_scaler, y_scaler=self.model.y_scaler)
-        y_predicted = self.model.y_scaler.inverse_transform(self.model(X[-1, :].reshape(1, -1)))[-1, 0]
+        X, _y, Xy_date = signals.to_xy(X_scaler=self.model.X_scaler, y_scaler=self.model.y_scaler)
+        # TODO Don't give the model the entire X - just the last sample
+        try:
+            y_predicted = self.model.y_scaler.inverse_transform(self.model(X).reshape(-1, 1))[-1, 0]
+        except Exception as ex:
+            util.print_exception(ex)
+            return None
         # Decide on action
         date = Xy_date.to_numpy()[-1]
         share_count = self.share_count(y_predicted)

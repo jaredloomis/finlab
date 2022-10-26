@@ -1,8 +1,11 @@
+import sys
 from typing import Any
 
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.preprocessing import OneHotEncoder
+
+from util import TimeRange
 
 
 class SignalSet:
@@ -13,7 +16,7 @@ class SignalSet:
     signals : list[Signal] | pd.DataFrame
     label_keys : set[str] | list[str]
     """
-    def __init__(self, date, signals, label_keys, X_scaler=None, y_scaler=None):
+    def __init__(self, date, signals, label_keys):
         self.date = date
         if isinstance(signals, pd.DataFrame):
             self.signals = signals
@@ -22,14 +25,11 @@ class SignalSet:
             self.signals = pd.DataFrame.from_dict({signal.column_name: signal.data for signal in signals})
         self.label_keys = label_keys
 
-        self.X_scaler = X_scaler or StandardScaler()   # RobustScaler()?
-        self.y_scaler = y_scaler or StandardScaler()
-
     def to_x(self):
         X, y, date = self.to_xy()
         return X, date
 
-    def to_xy(self, X_scaler=None, y_scaler=None):
+    def to_xy(self, X_scaler=None, y_scaler=None, no_scaling=False):
         # TODO one-hot
         # TODO custom scaling, per feature
         features = self.signals
@@ -50,23 +50,36 @@ class SignalSet:
         y = features[self.label_keys].to_numpy()
 
         # Scale
-        X = (X_scaler or self.X_scaler).fit_transform(X)
-        y = (y_scaler or self.y_scaler).fit_transform(y)[:, 0]
+        if not no_scaling:
+            if X.shape[0] > 0:
+                X = X_scaler.transform(X)
+            if y.shape[0] > 0:
+                y = y_scaler.transform(y)[:, 0]
+
         return X, y, date
 
+    def subset(self, timerange: TimeRange):
+        return SignalSet(
+            self.date[(timerange[0] <= self.date) & (self.date <= timerange[1])],
+            self.signals[(timerange[0] <= self.signals.index) & (self.signals.index <= timerange[1])],
+            self.label_keys
+        )
+
+    """
     @staticmethod
     def concat(signal_sets: list[Any]):
         if len(signal_sets) == 0:
             return None
         else:
             df = signal_sets[0].signals
-            label_keys = signal_sets[0].label_keys
+            label_keys = set(signal_sets[0].label_keys)
             for signal_set in signal_sets[1:]:
-                df = pd.merge(df, signal_set.signals, left_index=True, right_index=True)
-                label_keys |= signal_set.label_keys
+                df = pd.merge(df, signal_set.signals, left_index=True, right_index=True, suffixes=None)
+                label_keys |= set(signal_set.label_keys)
             df.sort_index(inplace=True)
 
             return SignalSet(df.index, df, label_keys)
+            """
 
     def __repr__(self):
         # TODO TMP
@@ -96,7 +109,7 @@ class Signal:
         if not isinstance(indices, str):
             raise Exception('Signal.__getitem__: only str key implemented')
 
-        return Signal(self.column_name + '[' + indices + ']', self.data[indices])
+        return Signal(self.column_name, self.data[indices])
 
     def __repr__(self):
         return self.column_name + ':\n' + self.data.__repr__()

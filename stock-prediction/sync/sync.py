@@ -16,16 +16,14 @@ all_tickers = all_tickers.sample(frac=1)
 tickers = pd.concat([watchlist, spy, all_tickers.head(200)])
 tickers = tickers.sample(frac=1).drop_duplicates()
 
+# Download 5-min candles
+sync_5min_candlesticks(tickers)
+
 # Download daily candles for all tickers for the last week
-"""
 today = date.today()
 last_week = today - timedelta(weeks=1)
 tomorrow = today + timedelta(days=1)
 ds.download_daily_candlesticks(tickers, last_week, tomorrow)
-"""
-
-# Download 5-min candles
-sync_5min_candlesticks(tickers)
 
 # Sync predictions
 sync_predictions(tickers)

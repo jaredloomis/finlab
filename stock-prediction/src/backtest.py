@@ -4,24 +4,25 @@ import traceback
 # from numba import jit
 from multiprocessing import cpu_count
 import matplotlib.pyplot as plt
+from datetime import timedelta
 
 from pathos.multiprocessing import ProcessPool as Pool
 
 import datastore as ds
 import util
+from signal_library import FetchOptions, fetch_signal_set
+from util import TimeRange
 
 
 def comprehensive_backtest(
     strategy,
     tickers,
-    start_date,
-    end_date,
-    interval='1day',
+    timerange,
+    interval='5min',
     start_cash=10000,
     train_test_ratio=0.3,
-    plot=False,
+    plot=True,
     log=True,
-    download=False,
     **kwargs,
 ):
     if isinstance(tickers, str):
@@ -31,56 +32,54 @@ def comprehensive_backtest(
 
     results = {}
     for ticker in tickers:
-        try:
-            print("Ticker:", ticker)
+        print("Ticker:", ticker)
 
-            # Download data to db
-            if download:
-                ds.download_candles([ticker], start_date, end_date)
-            # Load data from db
-            data = ds.get_candles([ticker], start_date, end_date)[ticker]
+        # Run strategy
+        actions = backtest(strategy, ticker, timerange, **kwargs)
 
-            # Train/test split index
-            split_index = int(np.floor(train_test_ratio * len(data.index)))
+        # Pull data from db
+        # TODO caching?
+        data = ds.get_candles([ticker], timerange[0], timerange[1], interval=interval)[ticker]
+        print(data)
 
-            # Run strategy
-            actions = backtest(strategy, data, split_index=split_index, **kwargs)
+        # Print results
+        bt_results = track_balance(start_cash, actions, data)
 
-            # Print results
-            bt_results = track_balance(start_cash, actions, data)
-            price_change = (
-                (data.iloc[-1]["close"] - data.iloc[split_index]["close"])
-                / data.iloc[split_index]["close"]
-                * 100
+        # TODO
+        """
+        price_change = (
+            (data.iloc[-1]["close"] - data.iloc[split_index]["close"])
+            / data.iloc[split_index]["close"]
+            * 100
+        )
+        """
+        if len(bt_results.keys()) > 0:
+            final_result = bt_results[list(bt_results.keys())[-1]]
+            gain_loss = (
+                (final_result["total_value"] - start_cash) / start_cash * 100
             )
-            if len(bt_results.keys()) > 0:
-                final_result = bt_results[list(bt_results.keys())[-1]]
-                gain_loss = (
-                    (final_result["total_value"] - start_cash) / start_cash * 100
-                )
-                roi = bt_results[list(bt_results.keys())[-1]]["roi"]
-            else:
-                gain_loss = 0
-                final_result = None
-                roi = 0
-            if log:
-                print(
-                    f"{len(actions)} buy/sells performed - {len(actions) / len(data.index) * 100}% of the time"
-                )
-                print(f"Stock price change: {price_change}%")
-                print(f"ROI: {roi * 100}%")
-                print(f"Relative ROI: {roi * 100 / price_change}%")
-                print(final_result)
+            roi = bt_results[list(bt_results.keys())[-1]]["roi"]
+        else:
+            gain_loss = 0
+            final_result = None
+            roi = 0
+        if log:
+            print(
+                f"{len(actions)} buy/sells performed - {len(actions) / len(data.index) * 100}% of the time"
+            )
+            # TODO
+            #print(f"Stock price change: {price_change}%")
+            print(f"ROI: {roi * 100}%")
+            # TODO
+            #print(f"Relative ROI: {roi * 100 / price_change}%")
+            print(final_result)
 
-            # Plot results and asset price
-            if plot:
-                plot_backtest(bt_results, actions, data)
+        # Plot results and asset price
+        if plot:
+            plot_backtest(bt_results, actions, data)
 
-            # Collect results
-            results[ticker] = final_result
-        except Exception as ex:
-            print("Exception:")
-            traceback.print_exception(type(ex), ex, ex.__traceback__)
+        # Collect results
+        results[ticker] = final_result
 
     # Summarize results
     # TODO average ROI
@@ -95,21 +94,41 @@ def comprehensive_backtest(
     return {"average_gainloss": average_gainloss, "results": results}
 
 
-def backtest(strategy, df, split_index=120, processes=cpu_count() // 2):
+def backtest(strategy, ticker: str, timerange: TimeRange, min_sample_dur=timedelta(days=10), processes=cpu_count() // 2):
     """
     Run a strategy once per day - buy, sell, or hold.
 
     strategy : function[date, row, state -> action, state]
 
-    returns a list of actions taken, and resulting state.
+    returns a list of actions taken.
     """
-    with Pool(processes) as pool:
-        strategy.train(df.head(split_index))
+    try:
+        signals = fetch_signal_set(strategy.model.features, strategy.model.labels, FetchOptions({ticker}, timerange))[ticker]
+    except Exception as ex:
+        util.print_exception(ex)
+        return []
+    earliest_time = signals.date[0]
 
-        def f(idx):
-            return strategy.execute(df[df.index < idx])
+    if processes > 1:
+        with Pool(processes) as pool:
+            def f(cur_time):
+                if cur_time - earliest_time > min_sample_dur:
+                    return strategy.execute(signals.subset((earliest_time, cur_time)))
+                else:
+                    return None
 
-        actions = pool.map(f, df.index[split_index:])
+            actions = pool.map(f, signals.date[signals.date < timerange[1]])
+            actions = list(filter(lambda x: x is not None, actions))
+            return actions
+    else:
+        actions = []
+        for cur_time in signals.date[signals.date < timerange[1]]:
+            if cur_time - earliest_time > min_sample_dur:
+                #print((earliest_time, cur_time))
+                #print(signals.subset((earliest_time, cur_time)).signals.shape)
+                #print(signals.subset((earliest_time, cur_time)))
+                #print(signals.subset((earliest_time, cur_time)))
+                actions.append(strategy.execute(signals.subset((earliest_time, cur_time))))
         actions = list(filter(lambda x: x is not None, actions))
         return actions
 
@@ -122,7 +141,7 @@ class Action:
         self.params = params
 
     def __repr__(self):
-        return f"Action(date={self.date}, action_type={self.action_type}, quantity={self.quantity}, price={self.price}, params={self.params})"
+        return f"Action(date={self.date}, action_type={self.action_type}, quantity={self.quantity}, params={self.params})"
 
 
 def track_balance(start_cash, actions, candlesticks):
@@ -139,7 +158,7 @@ def track_balance(start_cash, actions, candlesticks):
                 assets -= action.quantity
                 total_return += latest_price * action.quantity
         elif action.action_type == "buy":
-            if cash > 0:
+            if cash - latest_price * action.quantity > 0:
                 cash -= latest_price * action.quantity
                 assets += action.quantity
                 total_invested += latest_price * action.quantity
@@ -197,6 +216,7 @@ def plot_backtest(snapshots: dict, actions, df):
     plt.plot(x, total, label="Total Value")
     plt.plot(x, cash, label="Cash")
     plt.plot(x, assets, label="Value of Holdings")
+    plt.xticks(rotation=45)
     plt.legend()
     fig1 = plt.show()
 
@@ -207,6 +227,7 @@ def plot_backtest(snapshots: dict, actions, df):
             plt.axvline(x=action.date, color="green")
         elif action.action_type == "sell":
             plt.axvline(x=action.date, color="red")
+    plt.xticks(rotation=45)
     fig2 = plt.show()
 
     # Plot of asset price and shaded buy/sell regions
@@ -236,6 +257,7 @@ def plot_backtest(snapshots: dict, actions, df):
             start_action.action_type
         ) or "lightgray"
         plt.axvspan(start_action.date, end_action.date, color=color)
-    fig2 = plt.show()
+    plt.xticks(rotation=45)
+    fig3 = plt.show()
 
-    return [fig1, fig2]
+    return [fig1, fig2, fig3]

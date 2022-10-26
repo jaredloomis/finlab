@@ -32,9 +32,13 @@ secedgar = "*"
 pathos = "*"
 websocket-client = "*"
 requests = "*"
+numba = "*"
 
 [dev-packages]
 pytest = "*"
 
 [requires]
 python_version = "3.8"
+
+[scripts]
+tests = "bash -c 'pytest test/* -s -W ignore::DeprecationWarning'"

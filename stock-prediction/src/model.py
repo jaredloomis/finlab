@@ -5,31 +5,19 @@ import sklearn
 import pickle
 import imp
 
+from signal_library import FetchOptions, fetch_signal_set
+from signal_expr import SignalExpr
+import util
 
-class SignalExpr:
-    signal_id: str
-    args: dict[str, Any]
-    # Select a specific value of output
-    # ex. {'id': 'candles_1d', select: 'open'}
-    select: Optional[str]
+class TrainOptions:
+    epochs: int
 
-    def __init__(self, signal_id, args, select=None):
-        self.signal_id = signal_id
-        self.args = args
-        self.select = select
-
-    def qualified_id(self):
-        ret = self.signal_id
-        for name, val in self.args.items():
-            if isinstance(val, SignalExpr):
-                ret += '_' + val.qualified_id()
-            else:
-                ret += '_' + name + str(val)
-        return ret
+    def __init__(self, epochs):
+        self.epochs = epochs
 
 
 class Backend:
-    def train(self, *args, **kwargs):
+    def train(self, features: list[SignalExpr], labels: list[SignalExpr]):
         raise 'Backend.train: not yet implemented!'
 
     def serialize(self) -> Union[dict[str, Any], bytes]:
@@ -56,10 +44,26 @@ class TorchBackend(Backend):
     def __init__(self, model: nn.Module, model_code: str):
         self.model = model
         self.model_code = model_code
+        # TODO configurable? Save?
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        self.criterion = torch.nn.MSELoss()
 
-    def train(self, *args, **kwargs):
+    def train(self, X, y, device='cpu'):
+        # Convert to torch
+        X = torch.from_numpy(X).float().to(device)
+        y = torch.from_numpy(y).float().to(device)
+
+        # Train
         self.model.train()
-        return self.model(*args, **kwargs)
+        y_pred = self.model(X)
+
+        # Compute loss, zero gradients, backward pass, update weights
+        self.optimizer.zero_grad()
+        loss = self.criterion(y_pred, y)
+        loss.backward()
+        self.optimizer.step()
+
+        return loss.item()
 
     def serialize(self):
         return {
@@ -84,9 +88,9 @@ class TorchBackend(Backend):
                all([torch.equal(self.model.state_dict()[key], other.model.state_dict()[key]) for key in
                     self.model.state_dict().keys()])
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, X):
         self.model.eval()
-        return self.model(*args, **kwargs)
+        return self.model(X)
 
 
 class SklearnBackend(Backend):
@@ -111,8 +115,8 @@ class SklearnBackend(Backend):
     def __eq__(self, other):
         return self.model == other.model
 
-    def __call__(self, *args, **kwargs):
-        return self.model.predict(*args, **kwargs)
+    def __call__(self, X):
+        return self.model.predict(X)
 
 
 SerializedRawModel = Union[dict[str, Any], bytes]
@@ -165,8 +169,46 @@ class Model:
             obj['features'], obj['labels'], deserialize_scaler(obj['X_scaler']), deserialize_scaler(obj['y_scaler'])
         )
 
-    def train(self, *args, **kwargs):
-        return self.backend.train(*args, **kwargs)
+    def train(self, fetch_options: FetchOptions, train_options: TrainOptions):
+        # Fetch data
+        signals_by_ticker = fetch_signal_set(self.features, self.labels, fetch_options)
+        #signals = SignalSet.concat(list(signals_by_ticker.values()))
+        #print(signals_by_ticker)
+
+        # TODO shuffle data
+
+        # Set up scalers
+        for ticker, signals in signals_by_ticker.items():
+            X, y, _ = signals.to_xy(no_scaling=True)
+            if X.shape[0] > 0:
+                self.X_scaler.partial_fit(X)
+            if y.shape[0] > 0:
+                self.y_scaler.partial_fit(y)
+
+        # TODO batching
+        for ticker, signals in signals_by_ticker.items():
+            try:
+                for epoch in range(train_options.epochs):
+                    X, y, Xy_date = signals.to_xy(self.X_scaler, self.y_scaler)
+                    loss = self.backend.train(X, y)
+                    print(loss)
+            except Exception as ex:
+                print(f'error training on data for ticker {ticker}')
+                util.print_exception(ex)
+
+    def eval(self, fetch_options: FetchOptions):
+        signals_by_ticker = fetch_signal_set(self.features, self.labels, fetch_options)
+
+        ret = {}
+        for sym, sigs in signals_by_ticker.items():
+            try:
+                ret[sym] = self.y_scaler.inverse_transform(
+                    self.backend(sigs.to_xy(self.X_scaler, self.y_scaler)[0][-1].reshape(1, -1)).reshape(-1, 1)
+                )[:, 0][-1]
+            except Exception as ex:
+                util.print_exception(ex)
+
+        return ret
 
     def __call__(self, *args, **kwargs):
         return self.backend(*args, **kwargs)

@@ -17,11 +17,11 @@ from datetime import timedelta
 from prediction import Prediction
 from model_env import ModelEnv
 import util
-from model import Model
 
 finnhub_api_key = "cas9okqad3ifjkt0rcq0"
 finnhub_client = finnhub.Client(api_key=finnhub_api_key)
-alpha_vantage_key = "B1OHE9R769FVLIYU"
+#alpha_vantage_key = "B1OHE9R769FVLIYU"
+alpha_vantage_key = "GKWUUVF3ZTAGLGXZ"
 
 
 def mongo_client():
@@ -75,6 +75,76 @@ def download_candles_intraday_extended(tickers, interval='5min'):
     mongo = mongo_client()
     db = mongo.stock_analysis
 
+    fail_count = 0
+    MAX_FAILS = 2
+
+    for ticker in tickers:
+        try:
+            if not download_candles_intraday_extended_helper(db, ticker, interval):
+                fail_count += 1
+                if fail_count > MAX_FAILS:
+                    print('Looks like your AlphaVantage API quota for the day is up!')
+                    break
+                else:
+                    time.sleep(60)
+            else:
+                fail_count = 0
+        except Exception as ex:
+            # For any unknown error, print and wait 60s to try again
+            util.print_exception(ex)
+            print(f"Error 2 downloading intraday_history_extended for {ticker}. Waiting 60s.")
+            time.sleep(60)
+
+    mongo.close()
+
+
+def download_candles_intraday_extended_helper(db, ticker, interval):
+    for year in [1, 2]:
+        for month in range(1, 13):
+            # Make request
+            month_slice = f'year{year}month{month}'
+            url = f'https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY_EXTENDED \
+                  &symbol={ticker}&interval={interval}&slice={month_slice}&apikey={alpha_vantage_key}' \
+                .replace(' ', '')
+            res = requests.get(url)
+
+            # Check for JSON rate limit error
+            err = None
+            try:
+                err = json.loads(res.text)
+            except:
+                pass
+            if err is not None:
+                print(f"Error 1 downloading intraday_history_extended for {ticker}.")
+                print(url)
+                print(err)
+                print(res.text)
+                return False
+
+            # Parse CSV
+            candles_csv = res.text
+            candles = pd.read_csv(StringIO(candles_csv))
+            candles = candles.assign(symbol=ticker)
+            candles = candles.to_dict('records')
+
+            # Store in db
+            if len(candles) > 0:
+                try:
+                    db[f'candles_{interval}'].insert_many(candles, ordered=False)
+                except pymongo.errors.BulkWriteError as ex:
+                    util.print_exception(ex)
+                    pass
+            else:
+                print(f'Got zero candles intraday_history_extended {ticker}')
+
+    return True
+
+
+"""
+def download_candles_intraday_extended(tickers, interval='5min'):
+    mongo = mongo_client()
+    db = mongo.stock_analysis
+
     MAX_REQUESTS = 500
     request_count = 0
 
@@ -111,6 +181,7 @@ def download_candles_intraday_extended(tickers, interval='5min'):
                         # Parse CSV
                         candles_csv = res.text
                         candles = pd.read_csv(StringIO(candles_csv))
+                        candles['time'] = pd.to_datetime(candles['time'])
                         candles = candles.assign(symbol=ticker)
                         candles = candles.to_dict('records')
 
@@ -126,8 +197,10 @@ def download_candles_intraday_extended(tickers, interval='5min'):
                         util.print_exception(ex)
                         print(f"Error 2 downloading intraday_history_extended for {ticker}. Waiting 60s.")
                         time.sleep(60)
+"""
 
 
+# TODO FIX
 def download_candles_intraday(tickers, interval='5min'):
     mongo = mongo_client()
     db = mongo.stock_analysis
@@ -183,6 +256,8 @@ def download_candles_intraday(tickers, interval='5min'):
 
 
 def get_candles(tickers, start, end, interval='5min'):
+    if isinstance(tickers, str):
+        tickers = [tickers]
     start = util.normalize_datetime(start)
     end = util.normalize_datetime(end)
     _, interval = util.parse_interval(interval)
@@ -202,10 +277,10 @@ def get_candles(tickers, start, end, interval='5min'):
                     "$lte": end,
                 },
             }
-        )
+        ).sort('time', pymongo.ASCENDING)
         data = pd.DataFrame([sample for sample in cur])
-        #print(data)
-        data.index = data['time']
+        if not data.empty:
+            data.index = data['time']
         ret[ticker] = data
 
     mongo.close()
@@ -314,8 +389,6 @@ def download_daily_candlesticks(tickers, start_date, end_date):
                 inplace=True,
             )
             data["symbol"] = ticker
-
-            print(data)
 
             # Insert into mongo
             if not data.empty:
@@ -746,38 +819,3 @@ def get_all_model_envs():
     mongo.close()
     return ret
 
-
-def save_models(models: list[Model]):
-    mongo = mongo_client()
-    db = mongo.stock_analysis
-    db.models.insert_many(map(lambda m: m.serialize(), models))
-    mongo.close()
-
-
-def get_model(model_id: str):
-    mongo = mongo_client()
-    db = mongo.stock_analysis
-    obj = db.models.find_one({'id': {'$eq': model_id}})
-    if obj is not None:
-        ret = Model.deserialize(obj)
-        mongo.close()
-        return ret
-    else:
-        return None
-
-
-def get_all_models() -> list[Model]:
-    mongo = mongo_client()
-    db = mongo.stock_analysis
-    cur = db.models.find({})
-    ret = [Model.deserialize(obj) for obj in cur]
-    mongo.close()
-    return ret
-
-
-def update_model(model: Model) -> pymongo.results.UpdateResult:
-    mongo = mongo_client()
-    db = mongo.stock_analysis
-    result = db.models.update_one({'id': {'$eq': model.model_id}}, model.serialize())
-    mongo.close()
-    return result
